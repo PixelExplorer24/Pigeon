@@ -194,6 +194,319 @@
             82% { opacity: 1; }
         }
 
+
+        /* =========================================================
+           MOBILE APP SHELL
+           Map occupies the screen between the compact top status
+           area and the fixed bottom navigation.
+        ========================================================== */
+        html, body {
+            width: 100%;
+            min-height: 100%;
+            overscroll-behavior: none;
+        }
+
+        .mobile-bottom-nav {
+            display: none;
+        }
+
+        .friend-desktop-btn {
+            display: inline-flex;
+        }
+
+        @media (max-width: 767px) {
+            body {
+                min-height: 100dvh;
+                height: 100dvh;
+                overflow: hidden;
+                padding-bottom: 0 !important;
+                background: #f4ebe1;
+            }
+
+            header {
+                height: 64px;
+                min-height: 64px;
+                position: fixed !important;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 2500 !important;
+            }
+
+            header > div {
+                height: 64px;
+                padding: 8px 12px !important;
+            }
+
+            header h1 {
+                font-size: 15px !important;
+                line-height: 1.1;
+            }
+
+            header h1 span {
+                display: none;
+            }
+
+            header p {
+                display: none;
+            }
+
+            header .w-10 {
+                width: 38px !important;
+                height: 38px !important;
+                min-width: 38px;
+            }
+
+            header .w-10 i {
+                font-size: 17px !important;
+            }
+
+            header .flex.items-center.space-x-3 {
+                gap: 8px;
+            }
+
+            main {
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                padding-top: 64px !important;
+                padding-bottom: 70px !important;
+                height: 100dvh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Hide the large desktop tab strip on phones. */
+            main > .flex.border-b-2 {
+                display: none !important;
+            }
+
+            .tab-view {
+                width: 100%;
+                min-height: calc(100dvh - 134px);
+                padding: 10px !important;
+            }
+
+            .tab-view.hidden {
+                display: none !important;
+            }
+
+            .parchment-card {
+                border-radius: 14px !important;
+            }
+
+            /* Dispatch / Inbox / Friends become clean floating cards. */
+            #view-dispatch,
+            #view-nest,
+            #view-friends {
+                overflow-y: auto;
+            }
+
+            #view-dispatch .grid {
+                display: block !important;
+            }
+
+            #view-dispatch .lg\:col-span-7 {
+                width: 100% !important;
+            }
+
+            #view-dispatch .parchment-card {
+                padding: 14px !important;
+            }
+
+            /* Mobile map: full available screen, no fixed 520px box. */
+            #view-map {
+                position: relative;
+                padding: 0 !important;
+                height: calc(100dvh - 134px);
+                min-height: calc(100dvh - 134px);
+                overflow: hidden;
+            }
+
+            #view-map > .parchment-card {
+                height: 74px;
+                min-height: 74px;
+                margin: 8px 10px 6px !important;
+                padding: 10px 12px !important;
+                position: relative;
+                z-index: 1200;
+            }
+
+            #view-map > .parchment-card .w-12 {
+                width: 38px !important;
+                height: 38px !important;
+                min-width: 38px;
+            }
+
+            #view-map > .parchment-card h2 {
+                font-size: 13px !important;
+            }
+
+            #view-map > .parchment-card p {
+                font-size: 10px !important;
+            }
+
+            #view-map > .parchment-card > .flex:last-child {
+                display: none !important;
+            }
+
+            #view-map > .relative {
+                position: absolute !important;
+                left: 0;
+                right: 0;
+                top: 88px;
+                bottom: 0;
+                height: auto !important;
+                min-height: 0 !important;
+                width: 100% !important;
+                border-width: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+            }
+
+            #leafletMap {
+                position: absolute;
+                inset: 0;
+                width: 100% !important;
+                height: 100% !important;
+            }
+
+            #mapTelemetryOverlay {
+                left: 10px !important;
+                right: 10px !important;
+                bottom: 10px !important;
+                max-width: none !important;
+                padding: 10px !important;
+                border-radius: 13px !important;
+            }
+
+            #mapTelemetryOverlay .grid {
+                gap: 6px !important;
+            }
+
+            #mapTelemetryOverlay .text-base {
+                font-size: 13px !important;
+            }
+
+            /* Keep Mapbox controls above the telemetry card. */
+            .mapboxgl-ctrl-top-right {
+                top: 8px !important;
+                right: 8px !important;
+            }
+
+            .mapboxgl-ctrl-bottom-left,
+            .mapboxgl-ctrl-bottom-right {
+                bottom: 5px !important;
+            }
+
+            .pigeon-photo-marker {
+                width: 190px !important;
+                height: 145px !important;
+            }
+
+            /* Fixed bottom app navigation */
+            .mobile-bottom-nav {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                position: fixed;
+                left: 8px;
+                right: 8px;
+                bottom: 8px;
+                height: 62px;
+                z-index: 2800;
+                background: rgba(38,22,12,.97);
+                border: 1px solid rgba(197,155,39,.65);
+                border-radius: 18px;
+                box-shadow: 0 12px 35px rgba(38,22,12,.35);
+                padding: 5px;
+                backdrop-filter: blur(14px);
+            }
+
+            .mobile-nav-btn {
+                border: 0;
+                background: transparent;
+                color: #e2cfb4;
+                border-radius: 13px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                font-size: 9px;
+                font-weight: 700;
+                min-width: 0;
+                position: relative;
+            }
+
+            .mobile-nav-btn i {
+                font-size: 18px;
+            }
+
+            .mobile-nav-btn.active {
+                background: rgba(197,155,39,.18);
+                color: #f1c84b;
+            }
+
+            .mobile-nav-badge {
+                position: absolute;
+                top: 3px;
+                right: 18%;
+                min-width: 16px;
+                height: 16px;
+                padding: 0 4px;
+                border-radius: 999px;
+                background: #8b1e1e;
+                color: white;
+                font-size: 8px;
+                line-height: 16px;
+                text-align: center;
+            }
+
+            /* Friend cards */
+            .friend-layout {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .friend-list-card,
+            .friend-chat-card {
+                min-height: 0;
+            }
+
+            .friend-chat-card {
+                display: none;
+            }
+
+            .friend-layout.chat-open .friend-list-card {
+                display: none;
+            }
+
+            .friend-layout.chat-open .friend-chat-card {
+                display: flex;
+            }
+
+            .friend-user-row {
+                min-height: 60px;
+            }
+
+            .friend-message-list {
+                min-height: 44dvh !important;
+                max-height: 50dvh !important;
+            }
+
+            .friend-chat-back {
+                display: inline-flex !important;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .friend-chat-back {
+                display: none !important;
+            }
+        }
+
         /* Pulsing Target Marker */
         @keyframes pulseRing {
             0% { transform: scale(0.6); opacity: 1; }
@@ -287,19 +600,8 @@
                 </div>
             </div>
 
-            <!-- Global Controls & Speed Mode -->
+            <!-- Global Controls -->
             <div class="flex items-center space-x-3 text-xs sm:text-sm">
-                <!-- Speed Simulation Mode Selector -->
-                <div class="bg-parchment-800/80 px-3 py-1.5 rounded-lg border border-parchment-400/20 flex items-center gap-2">
-                    <i class="fa-solid fa-gauge-high text-wax-gold"></i>
-                    <span class="text-parchment-300 hidden sm:inline">Flight Speed:</span>
-                    <select id="speedModeSelect" class="bg-parchment-900 text-wax-gold font-semibold rounded px-2 py-1 outline-none border border-parchment-400/30 cursor-pointer">
-                        <option value="50">Real Pigeon (50 km/h)</option>
-                        <option value="1200" selected>Demo Speed (1,200 km/h)</option>
-                        <option value="10000">Warp Speed (10,000 km/h)</option>
-                    </select>
-                </div>
-
                 <!-- Sound FX Toggle -->
                 <button id="soundToggleBtn" onclick="toggleAudio()" class="bg-parchment-800 hover:bg-parchment-800/80 text-parchment-200 px-3 py-1.5 rounded-lg border border-parchment-400/20 flex items-center gap-1.5 transition">
                     <i id="soundIcon" class="fa-solid fa-volume-high text-wax-gold"></i>
@@ -319,6 +621,9 @@
             </button>
             <button onclick="switchTab('map')" id="tabBtn-map" class="tab-btn px-5 py-2.5 font-cinzel font-bold text-sm sm:text-base border-b-4 border-transparent text-parchment-800 hover:text-wax-red flex items-center gap-2 transition">
                 <i class="fa-solid fa-map-location-dot"></i> Live Sky Tracker <span id="activeBadge" class="hidden bg-wax-red text-white text-xs px-2 py-0.5 rounded-full font-sans">0</span>
+            </button>
+            <button onclick="switchTab('friends')" id="tabBtn-friends" class="tab-btn px-5 py-2.5 font-cinzel font-bold text-sm sm:text-base border-b-4 border-transparent text-parchment-800 hover:text-wax-red flex items-center gap-2 transition">
+                <i class="fa-solid fa-user-group"></i> Friends <span id="friendsBadge" class="hidden bg-wax-red text-white text-xs px-2 py-0.5 rounded-full font-sans">0</span>
             </button>
             <button onclick="switchTab('nest')" id="tabBtn-nest" class="tab-btn px-5 py-2.5 font-cinzel font-bold text-sm sm:text-base border-b-4 border-transparent text-parchment-800 hover:text-wax-red flex items-center gap-2 transition">
                 <i class="fa-solid fa-box-archive"></i> The Nest (Inbox) <span id="inboxBadge" class="hidden bg-wax-gold text-parchment-900 text-xs px-2 py-0.5 rounded-full font-sans font-bold">0</span>
@@ -553,6 +858,72 @@
             </div>
         </section>
 
+
+        <!-- SECTION 3: FRIENDS (Requests + Direct Messages) -->
+        <section id="view-friends" class="tab-view hidden space-y-4">
+            <div class="parchment-card rounded-xl p-4 md:p-6 border-2 border-parchment-400 shadow-xl">
+                <div class="border-b-2 border-parchment-300 pb-3 mb-4 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="font-cinzel font-bold text-xl sm:text-2xl text-parchment-900 flex items-center gap-2">
+                            <i class="fa-solid fa-user-group text-wax-red"></i> Friends
+                        </h2>
+                        <p class="text-xs text-parchment-800">Send friend requests and exchange direct messages.</p>
+                    </div>
+                    <span id="friendConnectionStatus" class="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-1 rounded-full">ONLINE</span>
+                </div>
+
+                <div class="friend-layout" id="friendLayout">
+                    <!-- Friend list -->
+                    <div class="friend-list-card parchment-card rounded-xl p-3 border border-parchment-300">
+                        <div class="flex gap-2 mb-3">
+                            <input id="friendSearchInput" oninput="filterFriends()" type="text"
+                                   placeholder="Search people by name or email..."
+                                   class="flex-1 px-3 py-2 rounded-lg border border-parchment-400 bg-white text-sm outline-none focus:ring-2 focus:ring-wax-gold">
+                            <button onclick="refreshFriends()" class="px-3 rounded-lg bg-parchment-900 text-wax-gold" title="Refresh">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-cinzel font-bold text-sm text-parchment-900">Friend Requests</h3>
+                                <span id="friendRequestCount" class="text-[10px] font-bold bg-wax-red text-white px-2 py-0.5 rounded-full">0</span>
+                            </div>
+                            <div id="friendRequestsContainer" class="space-y-2"></div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-cinzel font-bold text-sm text-parchment-900 mb-2">People & Friends</h3>
+                            <div id="friendsListContainer" class="space-y-1 max-h-[52vh] overflow-y-auto"></div>
+                        </div>
+                    </div>
+
+                    <!-- Direct chat -->
+                    <div class="friend-chat-card parchment-card rounded-xl p-3 border border-parchment-300 flex flex-col">
+                        <div class="flex items-center gap-2 border-b border-parchment-300 pb-2 mb-2">
+                            <button onclick="closeFriendChat()" class="friend-chat-back hidden w-9 h-9 rounded-lg bg-parchment-200 items-center justify-center">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <img id="friendChatAvatar" src="https://placehold.co/100x100/3d2617/fdfbf7?text=?" class="w-9 h-9 rounded-full border border-wax-gold object-cover">
+                            <div class="flex-1 min-w-0">
+                                <div id="friendChatName" class="font-bold text-sm truncate">Select a friend</div>
+                                <div id="friendChatStatus" class="text-[10px] text-parchment-600">Direct message</div>
+                            </div>
+                        </div>
+                        <div id="friendMessageList" class="friend-message-list flex-1 min-h-[320px] max-h-[48vh] overflow-y-auto space-y-2 p-2 bg-parchment-100 rounded-lg"></div>
+                        <form onsubmit="sendDirectMessage(event)" class="flex gap-2 mt-2">
+                            <input id="friendMessageInput" type="text" maxlength="2000" autocomplete="off"
+                                   placeholder="Write a direct message..."
+                                   class="flex-1 px-3 py-2 rounded-lg border border-parchment-400 bg-white text-sm outline-none focus:ring-2 focus:ring-wax-gold">
+                            <button class="px-4 rounded-lg bg-wax-red text-white font-bold" type="submit">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- SECTION 3: THE NEST (Inbox & Flight Archives) -->
         <section id="view-nest" class="tab-view hidden space-y-6">
             <div class="parchment-card rounded-xl p-6 border-2 border-parchment-400 shadow-xl space-y-6">
@@ -700,6 +1071,15 @@
         let unsubscribeUsers = null;
         let allUsersList = [];
         let selectedRecipientObj = null;
+        let selectedFriendObj = null;
+        let allFriendsList = [];
+        let incomingFriendRequests = [];
+        let outgoingFriendRequests = [];
+        let unsubscribeFriendRequests = null;
+        let unsubscribeFriends = null;
+        let unsubscribeMessagesA = null;
+        let unsubscribeMessagesB = null;
+
 
         // Keep the Firebase session locally so a page reload does not sign the user out.
         // IMPORTANT: do not show the login overlay until Firebase has finished restoring
@@ -730,6 +1110,7 @@
                 requestAndSaveLocation(user);
                 listenToPigeons();
                 listenToUsers();
+                listenToFriends();
             } else {
                 // Only show login after Firebase has definitively reported that there is
                 // no valid persisted Google/email session. Never flash it during reload.
@@ -853,6 +1234,308 @@
             renderUsersList(filtered);
         };
 
+
+        function getPublicDataCollection() {
+            return db.collection('artifacts').doc(appId).collection('public').doc('data');
+        }
+
+        function getUsersCollectionRef() {
+            return getPublicDataCollection().collection('users');
+        }
+
+        function getFriendRequestsCollectionRef() {
+            return getPublicDataCollection().collection('friendRequests');
+        }
+
+        function getFriendsCollectionRef() {
+            return getPublicDataCollection().collection('friends');
+        }
+
+        function getMessagesCollectionRef() {
+            return getPublicDataCollection().collection('messages');
+        }
+
+        function normalizeFriendPair(a, b) {
+            return [a, b].sort().join('__');
+        }
+
+        function escapeHtmlSafe(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+            }[ch]));
+        }
+
+        window.sendFriendRequest = async function(targetUid) {
+            if (!currentUser || !targetUid || targetUid === currentUser.uid) return;
+            const pairId = normalizeFriendPair(currentUser.uid, targetUid);
+            try {
+                const existing = await getFriendRequestsCollectionRef()
+                    .where('pairId','==',pairId).get();
+
+                let alreadyPending = false;
+                existing.forEach(d => {
+                    const x = d.data();
+                    if (x.status === 'pending') alreadyPending = true;
+                });
+
+                const friendExisting = await getFriendsCollectionRef()
+                    .where('pairId','==',pairId).get();
+
+                if (!friendExisting.empty) {
+                    alert('You are already friends.');
+                    return;
+                }
+                if (alreadyPending) {
+                    alert('A friend request is already pending.');
+                    return;
+                }
+
+                await getFriendRequestsCollectionRef().add({
+                    senderUid: currentUser.uid,
+                    receiverUid: targetUid,
+                    pairId,
+                    status: 'pending',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                renderFriendsUI();
+            } catch (err) {
+                console.error(err);
+                alert('Could not send friend request. Please check Firestore permissions.');
+            }
+        };
+
+        window.acceptFriendRequest = async function(requestId, senderUid) {
+            if (!currentUser) return;
+            const pairId = normalizeFriendPair(currentUser.uid, senderUid);
+            try {
+                const batch = db.batch();
+                const requestRef = getFriendRequestsCollectionRef().doc(requestId);
+                const friendRef = getFriendsCollectionRef().doc();
+                batch.update(requestRef, {
+                    status: 'accepted',
+                    respondedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                batch.set(friendRef, {
+                    pairId,
+                    ownerUid: currentUser.uid,
+                    friendUid: senderUid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                const reverseRef = getFriendsCollectionRef().doc();
+                batch.set(reverseRef, {
+                    pairId,
+                    ownerUid: senderUid,
+                    friendUid: currentUser.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                await batch.commit();
+            } catch (err) {
+                console.error(err);
+                alert('Could not accept the request. Please check Firestore permissions.');
+            }
+        };
+
+        window.rejectFriendRequest = async function(requestId) {
+            try {
+                await getFriendRequestsCollectionRef().doc(requestId).update({
+                    status: 'rejected',
+                    respondedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (err) {
+                console.error(err);
+                alert('Could not reject the request.');
+            }
+        };
+
+        async function listenToFriends() {
+            if (unsubscribeFriendRequests) unsubscribeFriendRequests();
+            if (unsubscribeFriends) unsubscribeFriends();
+            if (!currentUser || currentUser.isAnonymous) return;
+
+            const uid = currentUser.uid;
+
+            unsubscribeFriendRequests = getFriendRequestsCollectionRef()
+                .where('receiverUid','==',uid)
+                .where('status','==','pending')
+                .onSnapshot(snapshot => {
+                    incomingFriendRequests = [];
+                    snapshot.forEach(d => incomingFriendRequests.push({id:d.id, ...d.data()}));
+                    renderFriendsUI();
+                }, err => console.error('Friend request listener:', err));
+
+            unsubscribeFriends = getFriendsCollectionRef()
+                .where('ownerUid','==',uid)
+                .onSnapshot(async snapshot => {
+                    const ids = [];
+                    snapshot.forEach(d => ids.push(d.data().friendUid));
+                    const uniqueIds = [...new Set(ids)];
+                    const users = [];
+                    for (const id of uniqueIds) {
+                        try {
+                            const u = await getUsersCollectionRef().doc(id).get();
+                            if (u.exists) users.push({uid:id, ...u.data()});
+                        } catch(e) { console.error(e); }
+                    }
+                    allFriendsList = users;
+                    renderFriendsUI();
+                }, err => console.error('Friends listener:', err));
+        }
+
+        async function renderFriendsUI() {
+            const requestBox = document.getElementById('friendRequestsContainer');
+            const peopleBox = document.getElementById('friendsListContainer');
+            const countBox = document.getElementById('friendRequestCount');
+            const badge = document.getElementById('friendsBadge');
+            const mobileBadge = document.getElementById('mobileFriendBadge');
+
+            if (countBox) countBox.textContent = incomingFriendRequests.length;
+            if (badge) {
+                badge.textContent = incomingFriendRequests.length;
+                badge.classList.toggle('hidden', incomingFriendRequests.length === 0);
+            }
+            if (mobileBadge) {
+                mobileBadge.textContent = incomingFriendRequests.length;
+                mobileBadge.classList.toggle('hidden', incomingFriendRequests.length === 0);
+            }
+
+            if (requestBox) {
+                if (!incomingFriendRequests.length) {
+                    requestBox.innerHTML = '<div class="text-xs text-parchment-600 py-2">No pending requests.</div>';
+                } else {
+                    const users = await Promise.all(incomingFriendRequests.map(async r => {
+                        try {
+                            const u = await getUsersCollectionRef().doc(r.senderUid).get();
+                            return {req:r, user:u.exists ? u.data() : {uid:r.senderUid, displayName:'Unknown user'}};
+                        } catch(e) {
+                            return {req:r, user:{uid:r.senderUid, displayName:'Unknown user'}};
+                        }
+                    }));
+                    requestBox.innerHTML = users.map(({req:r,user:u}) => `
+                        <div class="friend-user-row flex items-center gap-3 p-2 rounded-lg bg-parchment-200 border border-parchment-300">
+                            <img src="${escapeHtmlSafe(u.photoURL || 'https://placehold.co/100x100/3d2617/fdfbf7?text=?')}" class="w-9 h-9 rounded-full object-cover border border-wax-gold">
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-xs truncate">${escapeHtmlSafe(u.displayName || u.email || 'User')}</div>
+                                <div class="text-[10px] text-parchment-600 truncate">${escapeHtmlSafe(u.email || '')}</div>
+                            </div>
+                            <button onclick="acceptFriendRequest('${r.id}','${r.senderUid}')" class="w-8 h-8 rounded-lg bg-green-700 text-white" title="Accept"><i class="fa-solid fa-check"></i></button>
+                            <button onclick="rejectFriendRequest('${r.id}')" class="w-8 h-8 rounded-lg bg-wax-red text-white" title="Reject"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            if (peopleBox) {
+                const q = (document.getElementById('friendSearchInput')?.value || '').toLowerCase().trim();
+                const users = allUsersList
+                    .filter(u => u.uid !== currentUser?.uid)
+                    .filter(u => !q || (u.displayName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+
+                peopleBox.innerHTML = users.map(u => {
+                    const isFriend = allFriendsList.some(f => f.uid === u.uid);
+                    const isSelected = selectedFriendObj?.uid === u.uid;
+                    return `
+                        <div class="friend-user-row flex items-center gap-3 p-2 rounded-lg ${isSelected ? 'bg-wax-gold/20 border border-wax-gold' : 'hover:bg-parchment-200'}">
+                            <img src="${escapeHtmlSafe(u.photoURL || 'https://placehold.co/100x100/3d2617/fdfbf7?text=?')}" class="w-9 h-9 rounded-full object-cover border border-parchment-400">
+                            <button onclick="openFriendChat('${u.uid}')" class="flex-1 text-left min-w-0">
+                                <div class="font-bold text-xs text-parchment-900 truncate">${escapeHtmlSafe(u.displayName || u.email || 'User')}</div>
+                                <div class="text-[10px] text-parchment-600 truncate">${escapeHtmlSafe(u.email || '')}</div>
+                            </button>
+                            ${isFriend
+                                ? '<span class="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-1 rounded-full">FRIEND</span>'
+                                : `<button onclick="sendFriendRequest('${u.uid}')" class="px-2 py-1.5 rounded-lg bg-wax-red text-white text-[10px] font-bold"><i class="fa-solid fa-user-plus"></i></button>`}
+                        </div>
+                    `;
+                }).join('') || '<div class="text-xs text-center text-parchment-600 py-4">No people found.</div>';
+            }
+        }
+
+        window.filterFriends = function() {
+            renderFriendsUI();
+        };
+
+        window.refreshFriends = async function() {
+            await renderFriendsUI();
+        };
+
+        window.openFriendChat = async function(uid) {
+            const friend = allFriendsList.find(f => f.uid === uid) || allUsersList.find(u => u.uid === uid);
+            if (!friend) return;
+
+            selectedFriendObj = friend;
+            const layout = document.getElementById('friendLayout');
+            if (layout) layout.classList.add('chat-open');
+
+            document.getElementById('friendChatName').textContent = friend.displayName || friend.email || 'Friend';
+            document.getElementById('friendChatAvatar').src = friend.photoURL || 'https://placehold.co/100x100/3d2617/fdfbf7?text=?';
+            document.getElementById('friendChatStatus').textContent = allFriendsList.some(f => f.uid === uid) ? 'Friend • Direct message' : 'Send a friend request to chat freely';
+
+            if (unsubscribeMessagesA) unsubscribeMessagesA();
+            if (unsubscribeMessagesB) unsubscribeMessagesB();
+
+            const msgRef = getMessagesCollectionRef();
+            const render = async () => {
+                const [a,b] = await Promise.all([
+                    msgRef.where('senderUid','==',currentUser.uid).where('receiverUid','==',uid).get(),
+                    msgRef.where('senderUid','==',uid).where('receiverUid','==',currentUser.uid).get()
+                ]);
+                const messages = [];
+                a.forEach(d => messages.push({id:d.id,...d.data()}));
+                b.forEach(d => messages.push({id:d.id,...d.data()}));
+                messages.sort((x,y) => {
+                    const tx = x.createdAt?.toMillis ? x.createdAt.toMillis() : (x.createdAt || 0);
+                    const ty = y.createdAt?.toMillis ? y.createdAt.toMillis() : (y.createdAt || 0);
+                    return tx - ty;
+                });
+                const box = document.getElementById('friendMessageList');
+                if (!box) return;
+                box.innerHTML = messages.map(m => {
+                    const mine = m.senderUid === currentUser.uid;
+                    return `<div class="flex ${mine ? 'justify-end' : 'justify-start'}">
+                        <div class="max-w-[82%] px-3 py-2 rounded-2xl ${mine ? 'bg-wax-red text-white rounded-br-md' : 'bg-parchment-200 text-parchment-900 rounded-bl-md'}">
+                            <div class="text-xs whitespace-pre-wrap break-words">${escapeHtmlSafe(m.text)}</div>
+                        </div>
+                    </div>`;
+                }).join('') || '<div class="text-xs text-center text-parchment-600 py-8">No messages yet.</div>';
+                box.scrollTop = box.scrollHeight;
+            };
+
+            // Firestore listeners on the two simple query directions.
+            unsubscribeMessagesA = msgRef.where('senderUid','==',currentUser.uid).where('receiverUid','==',uid).onSnapshot(render, console.error);
+            unsubscribeMessagesB = msgRef.where('senderUid','==',uid).where('receiverUid','==',currentUser.uid).onSnapshot(render, console.error);
+            await render();
+        };
+
+        window.closeFriendChat = function() {
+            document.getElementById('friendLayout')?.classList.remove('chat-open');
+            selectedFriendObj = null;
+        };
+
+        window.sendDirectMessage = async function(event) {
+            event.preventDefault();
+            const input = document.getElementById('friendMessageInput');
+            const textValue = (input?.value || '').trim();
+            if (!currentUser || !selectedFriendObj || !textValue) return;
+
+            const isFriend = allFriendsList.some(f => f.uid === selectedFriendObj.uid);
+            if (!isFriend) {
+                alert('Accept the friend request first to start direct messaging.');
+                return;
+            }
+
+            try {
+                await getMessagesCollectionRef().add({
+                    senderUid: currentUser.uid,
+                    receiverUid: selectedFriendObj.uid,
+                    text: textValue,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                input.value = '';
+            } catch(err) {
+                console.error(err);
+                alert('Message could not be sent. Please check Firestore permissions.');
+            }
+        };
+
         function getPigeonsCollectionRef() {
             return db.collection('artifacts').doc(appId).collection('public').doc('data').collection('pigeons');
         }
@@ -919,8 +1602,19 @@
                 const byId = new Map();
                 [...sent, ...incoming].forEach(p => byId.set(p.id, p));
                 const list = Array.from(byId.values()).sort((a,b) => (b.dispatchTime || 0) - (a.dispatchTime || 0));
-                window.pigeonsList = list;
-                if (typeof window.onPigeonsDataUpdated === 'function') window.onPigeonsDataUpdated(list);
+                const fixedSpeedList = list.map(p => {
+                    const distanceKm = Number(p.distanceKm) || 0;
+                    const durationSec = Math.max(5, (distanceKm / FIXED_PIGEON_SPEED_KMH) * 3600);
+                    const dispatchTime = Number(p.dispatchTime) || Date.now();
+                    return {
+                        ...p,
+                        pigeonSpeedKmh: FIXED_PIGEON_SPEED_KMH,
+                        flightDurationSeconds: durationSec,
+                        estimatedArrival: dispatchTime + (durationSec * 1000)
+                    };
+                });
+                window.pigeonsList = fixedSpeedList;
+                if (typeof window.onPigeonsDataUpdated === 'function') window.onPigeonsDataUpdated(fixedSpeedList);
             };
 
             const unsubSent = colRef.where('senderUid', '==', uid).onSnapshot((snapshot) => {
@@ -944,6 +1638,7 @@
         let activePigeonId = null;
         // Mapbox configuration. Replace with your PUBLIC Mapbox token.
         const MAPBOX_PUBLIC_TOKEN = 'pk.eyJ1Ijoic2R0MDA3IiwiYSI6ImNtdTRpb3d4aDAwajcyd3BueXBicmVsMGYifQ.V4hCEMUYpAqH1HYip-316g';
+        const FIXED_PIGEON_SPEED_KMH = 50; // Realistic fixed pigeon flight speed
 
         let leafletMap = null; 
         let senderMarker = null;
@@ -1092,7 +1787,7 @@
             const rLng = parseFloat(document.getElementById('receiverLng').value) || 0;
 
             const distKm = haversineDistance({ lat: sLat, lng: sLng }, { lat: rLat, lng: rLng });
-            const speedKmh = parseFloat(document.getElementById('speedModeSelect').value) || 50;
+            const speedKmh = FIXED_PIGEON_SPEED_KMH;
             const durationSec = Math.max(5, (distKm / speedKmh) * 3600);
 
             document.getElementById('previewDistance').innerText = `${distKm.toFixed(1)} km`;
@@ -1211,7 +1906,7 @@
                 document.getElementById('receiverLng').value = rLng.toFixed(6);
 
                 const distanceKm = haversineDistance({ lat: sLat, lng: sLng }, { lat: rLat, lng: rLng });
-                const pigeonSpeedKmh = parseFloat(document.getElementById('speedModeSelect').value) || 50;
+                const pigeonSpeedKmh = FIXED_PIGEON_SPEED_KMH;
                 const flightDurationSeconds = Math.max(5, (distanceKm / pigeonSpeedKmh) * 3600);
                 const now = Date.now();
 
@@ -1656,7 +2351,7 @@
 
         function getAnimatedPigeonState(pigeon, now = Date.now()) {
             if (!pigeon) return null;
-            const totalDurationSec = Math.max(1, Number(pigeon.flightDurationSeconds) || 1);
+            const totalDurationSec = Math.max(1, (Number(pigeon.distanceKm) || 0) / FIXED_PIGEON_SPEED_KMH * 3600);
             const elapsedSec = Math.max(0, (now - Number(pigeon.dispatchTime || now)) / 1000);
             const progressFraction = Math.min(1, elapsedSec / totalDurationSec);
             const roadPoint = getRoadPointAtFraction(progressFraction);
@@ -1953,6 +2648,31 @@
             if (event.target.id === 'letterModal') closeLetterModal();
         });
 
+        function focusMapOnTrackedPigeon(pigeonId, options = {}) {
+            if (!leafletMap) return;
+            const pigeon = window.pigeonsList?.find(p => p.id === pigeonId);
+            if (!pigeon) return;
+
+            // Calculate the bird's current position without starting a follow mode.
+            // This is intentionally a one-time camera move: after the camera arrives,
+            // the user remains completely free to drag, zoom, rotate or pitch the map.
+            const state = getAnimatedPigeonState(pigeon, Date.now());
+            const pos = state?.currentPos || pigeon.senderCoords;
+            if (!pos) return;
+
+            const targetZoom = options.zoom ?? Math.max(5.5, Math.min(10.5, leafletMap.getZoom() || 7));
+
+            leafletMap.stop();
+            leafletMap.flyTo({
+                center: [Number(pos.lng), Number(pos.lat)],
+                zoom: targetZoom,
+                duration: options.duration ?? 1100,
+                essential: true,
+                curve: 1.25,
+                speed: 1.1
+            });
+        }
+
         function trackPigeonOnMap(pigeonId) {
             const pigeon = window.pigeonsList.find(p => p.id === pigeonId);
             if (!pigeon) return;
@@ -1960,6 +2680,22 @@
             roadRouteCoordinates = [];
             roadRouteKey = '';
             switchTab('map');
+
+            // Once the Map tab is visible and Mapbox has resized, move the camera
+            // directly to the flying pigeon's current location. This is NOT a
+            // continuous follow: the user can freely move the map afterwards.
+            const focus = () => {
+                if (!leafletMap) return;
+                if (typeof leafletMap.resize === 'function') leafletMap.resize();
+                focusMapOnTrackedPigeon(pigeonId);
+            };
+
+            // switchTab initializes the map when necessary, so wait for the next
+            // frame and then focus. A second pass handles the first Mapbox render.
+            requestAnimationFrame(() => {
+                focus();
+                setTimeout(focus, 180);
+            });
         }
 
         function switchTab(tabName) {
@@ -1968,11 +2704,20 @@
                 btn.classList.remove('border-wax-red', 'text-wax-red');
                 btn.classList.add('border-transparent', 'text-parchment-800');
             });
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => btn.classList.remove('active'));
 
-            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+            const view = document.getElementById(`view-${tabName}`);
+            if (!view) return;
+            view.classList.remove('hidden');
+
             const activeBtn = document.getElementById(`tabBtn-${tabName}`);
-            activeBtn.classList.remove('border-transparent', 'text-parchment-800');
-            activeBtn.classList.add('border-wax-red', 'text-wax-red');
+            if (activeBtn) {
+                activeBtn.classList.remove('border-transparent', 'text-parchment-800');
+                activeBtn.classList.add('border-wax-red', 'text-wax-red');
+            }
+
+            const mobileBtn = document.getElementById(`mobileNav-${tabName}`);
+            if (mobileBtn) mobileBtn.classList.add('active');
 
             if (tabName === 'map') {
                 if (!leafletMap) initLeafletMap();
@@ -1981,7 +2726,24 @@
                     updateMapTelemetry();
                 }, 100);
             }
+
+            if (tabName === 'friends') {
+                renderFriendsUI();
+            }
         }
+
+
+        window.addEventListener('resize', () => {
+            if (leafletMap && typeof leafletMap.resize === 'function') {
+                setTimeout(() => leafletMap.resize(), 120);
+            }
+        });
+
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                if (leafletMap && typeof leafletMap.resize === 'function') leafletMap.resize();
+            }, 350);
+        });
 
         window.onload = function() {
             calculateDistancePreview();
@@ -1992,8 +2754,43 @@
                     // The pigeon itself is animated with requestAnimationFrame for smooth motion.
                     if (leafletMap && activePigeonId) updateMapTelemetry();
                 }
+
+                    const activeBadge = document.getElementById('activeBadge');
+                    const mobileMapBadge = document.getElementById('mobileMapBadge');
+                    if (activeBadge && mobileMapBadge) {
+                        const val = parseInt(activeBadge.textContent || '0', 10) || 0;
+                        mobileMapBadge.textContent = val;
+                        mobileMapBadge.classList.toggle('hidden', val === 0);
+                    }
+                    const inboxBadge = document.getElementById('inboxBadge');
+                    const mobileInboxBadge = document.getElementById('mobileInboxBadge');
+                    if (inboxBadge && mobileInboxBadge) {
+                        const val = parseInt(inboxBadge.textContent || '0', 10) || 0;
+                        mobileInboxBadge.textContent = val;
+                        mobileInboxBadge.classList.toggle('hidden', val === 0);
+                    }
             }, 1000);
         };
     </script>
+
+    <!-- Mobile App Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Main navigation">
+        <button class="mobile-nav-btn active" id="mobileNav-dispatch" onclick="switchTab('dispatch')">
+            <i class="fa-solid fa-feather-pointed"></i><span>Send</span>
+        </button>
+        <button class="mobile-nav-btn" id="mobileNav-map" onclick="switchTab('map')">
+            <i class="fa-solid fa-map-location-dot"></i><span>Tracking</span>
+            <span id="mobileMapBadge" class="mobile-nav-badge hidden">0</span>
+        </button>
+        <button class="mobile-nav-btn" id="mobileNav-friends" onclick="switchTab('friends')">
+            <i class="fa-solid fa-user-group"></i><span>Friends</span>
+            <span id="mobileFriendBadge" class="mobile-nav-badge hidden">0</span>
+        </button>
+        <button class="mobile-nav-btn" id="mobileNav-nest" onclick="switchTab('nest')">
+            <i class="fa-solid fa-box-archive"></i><span>Inbox</span>
+            <span id="mobileInboxBadge" class="mobile-nav-badge hidden">0</span>
+        </button>
+    </nav>
+
 </body>
 </html>
