@@ -1,31 +1,13 @@
-# Digital Pigeon — GitHub Pages
+# Digital Pigeon — Mobile Messenger/Profile Update
 
-This package is prepared for deployment as a static site on GitHub Pages.
+This build keeps the existing Digital Pigeon features and adds:
+- Rich editable user profile with stats and activity hub
+- One-click Activity & Notifications view
+- Smart permission/consent notices at the top of the main page
+- Messenger chat-room list loaded on entry
+- Full-screen mobile chat sublink experience
+- ImgBB image sending inside direct Messenger chats
+- Existing pigeon-letter ImgBB attachments, tracking, inbox and speed controls preserved
 
-## Upload
-
-Upload the **contents of this folder** to the root of your GitHub repository so that `index.html` is at the repository root.
-
-## GitHub Pages
-
-1. Open the repository on GitHub.
-2. Go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**.
-4. Select branch **main** and folder **/(root)**.
-5. Save and wait for GitHub Pages to publish the site.
-
-## Firebase
-
-The app uses Firebase Authentication and Firestore. Add the final GitHub Pages hostname to Firebase Authentication → Settings → Authorized domains.
-
-## Mapbox
-
-The app uses a public Mapbox access token. Configure URL restrictions for the final GitHub Pages hostname in the Mapbox account if restrictions are enabled.
-
-## Notes
-
-- `index.html` is the entry point.
-- `assets/` contains the app CSS and JavaScript.
-- `sw.js` provides same-origin static asset caching.
-- `.nojekyll` prevents GitHub Pages/Jekyll processing.
-- `404.html` provides a GitHub Pages fallback for direct navigation.
+## Firebase / ImgBB
+The project continues using the existing Firebase project and ImgBB upload flow already configured in the app. Firestore security rules must allow the existing user/message collections and the new `activities` collection for persistent activity history.

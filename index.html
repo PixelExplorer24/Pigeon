@@ -37,6 +37,10 @@
         </div>
     </header>
 
+    <div id="smartNoticeBar" class="smart-notice-bar hidden" role="status" aria-live="polite">
+        <div id="smartNoticeList" class="smart-notice-list"></div>
+        <button type="button" class="smart-notice-dismiss" onclick="dismissSmartNotices()" aria-label="Dismiss notices"><i class="fa-solid fa-xmark"></i></button>
+    </div>
 
     <div id="loginOverlay" class="hidden fixed inset-0 bg-parchment-900/95 backdrop-blur-md z-[3000] flex flex-col items-center justify-center p-4 transition-opacity duration-500">
         <div class="parchment-card max-w-md w-full rounded-2xl border-4 border-wax-gold shadow-2xl p-8 text-center space-y-6">
@@ -71,8 +75,16 @@
                     <div class="profile-bio-label"><i class="fa-solid fa-quote-left"></i> Bio</div>
                     <div id="profileModalBio" class="profile-bio-text">No bio added yet.</div>
                 </div>
+                <div class="profile-stats-grid">
+                    <div><strong id="profileStatSent">0</strong><span>Sent</span></div>
+                    <div><strong id="profileStatReceived">0</strong><span>Received</span></div>
+                    <div><strong id="profileStatFriends">0</strong><span>Friends</span></div>
+                    <div><strong id="profileStatActivity">0</strong><span>Activity</span></div>
+                </div>
             </div>
 
+            <button type="button" class="profile-action profile-primary" onclick="openProfileEditor()"><i class="fa-solid fa-user-pen"></i> Edit Profile</button>
+            <button type="button" class="profile-action" onclick="openActivityPanel()"><i class="fa-solid fa-bolt"></i> Activity & Notifications <span id="profileActivityBadge" class="profile-action-badge hidden">0</span></button>
             <button type="button" class="profile-action" onclick="closeProfileModal()">
                 <i class="fa-solid fa-xmark"></i>
                 Close Profile
@@ -82,6 +94,29 @@
                 <i class="fa-solid fa-right-from-bracket"></i>
                 Log Out
             </button>
+        </section>
+    </div>
+
+    <!-- PROFILE EDITOR -->
+    <div id="profileEditorModal" class="profile-modal-backdrop hidden" onclick="handleProfileEditorBackdrop(event)">
+        <section class="profile-sheet" role="dialog" aria-modal="true">
+            <div class="profile-sheet-handle"></div>
+            <div class="profile-editor-head"><button onclick="closeProfileEditor()" class="icon-close"><i class="fa-solid fa-arrow-left"></i></button><div><h3>My Profile</h3><p>Personalize your Digital Pigeon identity</p></div></div>
+            <form id="profileEditorForm" onsubmit="saveProfile(event)" class="space-y-3">
+                <label class="profile-field"><span>Display name</span><input id="profileEditName" maxlength="80" required></label>
+                <label class="profile-field"><span>Profile photo URL</span><input id="profileEditPhoto" type="url" placeholder="https://..."></label>
+                <label class="profile-field"><span>Bio</span><textarea id="profileEditBio" rows="4" maxlength="500" placeholder="Tell your friends about you..."></textarea></label>
+                <button id="profileSaveBtn" class="profile-save-btn" type="submit"><i class="fa-solid fa-check"></i> Save Profile</button>
+            </form>
+        </section>
+    </div>
+
+    <!-- ACTIVITY & NOTIFICATIONS -->
+    <div id="activityModal" class="profile-modal-backdrop hidden" onclick="handleActivityBackdrop(event)">
+        <section class="profile-sheet activity-sheet" role="dialog" aria-modal="true">
+            <div class="profile-sheet-handle"></div>
+            <div class="profile-editor-head"><button onclick="closeActivityPanel()" class="icon-close"><i class="fa-solid fa-arrow-left"></i></button><div><h3>Activity</h3><p>Notifications and recent account activity</p></div></div>
+            <div id="activityList" class="activity-list"><div class="activity-empty"><i class="fa-solid fa-bolt"></i><span>No activity yet.</span></div></div>
         </section>
     </div>
 
@@ -103,195 +138,133 @@
     <!-- Main Body Layout -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 flex-grow w-full space-y-6">
 
-        <!-- Navigation Tabs -->
-        <div class="flex border-b-2 border-parchment-400 justify-center md:justify-start gap-2">
-            <button onclick="switchTab('dispatch')" id="tabBtn-dispatch" class="tab-btn px-5 py-2.5 font-cinzel font-bold text-sm sm:text-base border-b-4 border-wax-red text-wax-red flex items-center gap-2 transition">
-                <i class="fa-solid fa-feather-pointed"></i> Dispatch Station
-            </button>
-            <button onclick="switchTab('map')" id="tabBtn-map" class="tab-btn px-5 py-2.5 font-cinzel font-bold text-sm sm:text-base border-b-4 border-transparent text-parchment-800 hover:text-wax-red flex items-center gap-2 transition">
-                <i class="fa-solid fa-map-location-dot"></i> Live Sky Tracker <span id="activeBadge" class="hidden bg-wax-red text-white text-xs px-2 py-0.5 rounded-full font-sans">0</span>
-            </button>
-            <button onclick="switchTab('friends')" id="tabBtn-friends" class="tab-btn px-5 py-2.5 font-cinzel font-bold text-sm sm:text-base border-b-4 border-transparent text-parchment-800 hover:text-wax-red flex items-center gap-2 transition">
-                <i class="fa-solid fa-comments"></i> Messenger <span id="friendsBadge" class="hidden bg-wax-red text-white text-xs px-2 py-0.5 rounded-full font-sans">0</span>
-            </button>
-            <button onclick="switchTab('nest')" id="tabBtn-nest" class="tab-btn px-5 py-2.5 font-cinzel font-bold text-sm sm:text-base border-b-4 border-transparent text-parchment-800 hover:text-wax-red flex items-center gap-2 transition">
-                <i class="fa-solid fa-box-archive"></i> The Nest (Inbox) <span id="inboxBadge" class="hidden bg-wax-gold text-parchment-900 text-xs px-2 py-0.5 rounded-full font-sans font-bold">0</span>
-            </button>
-        </div>
+        <!-- Modern responsive navigation -->
+<div class="desktop-app-nav" aria-label="Main navigation">
+    <button onclick="switchTab('dispatch')" id="tabBtn-dispatch" class="tab-btn active"><i class="fa-solid fa-paper-plane"></i><span>Send</span></button>
+    <button onclick="switchTab('map')" id="tabBtn-map" class="tab-btn"><i class="fa-solid fa-route"></i><span>Tracking</span><span id="activeBadge" class="nav-badge hidden">0</span></button>
+    <button onclick="switchTab('friends')" id="tabBtn-friends" class="tab-btn"><i class="fa-solid fa-comments"></i><span>Messenger</span><span id="friendsBadge" class="nav-badge hidden">0</span></button>
+    <button onclick="switchTab('nest')" id="tabBtn-nest" class="tab-btn"><i class="fa-solid fa-inbox"></i><span>Inbox</span><span id="inboxBadge" class="nav-badge hidden">0</span></button>
+</div>
 
-        <!-- SECTION 1: DISPATCH STATION (Write Scroll & Set Coordinates) -->
-        <section id="view-dispatch" class="tab-view block space-y-6">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                <!-- Scroll / Letter Composer (Left Column) -->
-                <div class="lg:col-span-7 parchment-card rounded-xl p-6 md:p-8 border-2 border-parchment-400 shadow-xl space-y-5">
-                    <div class="border-b-2 border-parchment-300 pb-3 flex justify-between items-center">
-                        <h2 class="font-cinzel font-bold text-xl sm:text-2xl text-parchment-900 flex items-center gap-2">
-                            <i class="fa-solid fa-scroll text-wax-gold"></i> Pen Your Epistle
-                        </h2>
-                        <span class="text-xs text-parchment-800/70 italic font-garamond text-base">"Words traveling upon physical wings"</span>
-                    </div>
-
-                    <!-- Sender & Receiver Name Inputs -->
-                    <div class="grid grid-cols-1 gap-4">
-                        <!-- Sender Display -->
-                        <div class="bg-parchment-200/50 p-3 rounded-lg border border-parchment-300 flex items-center gap-3">
-                            <img id="senderAvatar" src="https://placehold.co/100x100/3d2617/fdfbf7?text=?" class="w-10 h-10 rounded-full border-2 border-wax-gold object-cover" loading="lazy" decoding="async">
-                            <div>
-                                <label class="block text-[10px] font-bold uppercase tracking-wider text-parchment-800">
-                                    <i class="fa-solid fa-feather-pointed text-wax-red"></i> Dispatching As
-                                </label>
-                                <div id="senderNameDisplay" class="font-cinzel font-bold text-parchment-900 text-lg">Loading...</div>
-                            </div>
-                        </div>
-
-                        <!-- Recipient Selection with Search -->
-                        <div class="bg-parchment-200/50 p-3 rounded-lg border border-parchment-300">
-                            <label class="block text-xs font-bold uppercase tracking-wider text-parchment-800 mb-2">
-                                <i class="fa-solid fa-users text-wax-red"></i> Select Recipient Directory
-                            </label>
-                            <div class="relative mb-2">
-                                <i class="fa-solid fa-search absolute left-3 top-2.5 text-parchment-400"></i>
-                                <input type="text" id="searchUserInput" onkeyup="filterUsers()" placeholder="Search citizens by name..." class="w-full bg-parchment-100 border border-parchment-400 rounded-lg pl-9 pr-3 py-2 text-sm text-parchment-900 font-medium focus:outline-none focus:ring-2 focus:ring-wax-gold">
-                            </div>
-                            <div id="usersListContainer" class="max-h-40 overflow-y-auto bg-parchment-100/80 border border-parchment-400 rounded-lg p-1 space-y-1">
-                                <div class="text-xs text-center text-parchment-500 py-4"><i class="fa-solid fa-circle-notch fa-spin"></i> Discovering citizens...</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Scroll Textarea -->
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-parchment-800 mb-1">
-                            <i class="fa-solid fa-quote-left text-wax-red"></i> Letter Content
-                        </label>
-                        <div class="relative rounded-lg overflow-hidden border border-parchment-400 shadow-inner">
-                            <textarea id="inputLetterContent" rows="7" placeholder="Write your letter here... The pigeon will carry this message across real distances." class="scroll-textarea w-full p-4 font-garamond text-lg text-parchment-900 font-semibold focus:outline-none resize-none"></textarea>
-                        </div>
-                    </div>
-
-                    <!-- ImgBB Image Attachment Section -->
-                    <div class="bg-parchment-200/60 p-4 rounded-lg border border-parchment-400 space-y-3">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold uppercase tracking-wider text-parchment-800 flex items-center gap-2">
-                                <i class="fa-solid fa-paperclip text-wax-gold"></i> Attach Photograph
-                            </label>
-                            <span class="text-xs text-parchment-800/70">Optional</span>
-                        </div>
-                        
-                        <div class="flex flex-col sm:flex-row items-center gap-3">
-                            <input type="file" id="imageFileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
-                            <button type="button" onclick="document.getElementById('imageFileInput').click()" class="w-full sm:w-auto px-4 py-2 bg-parchment-100 hover:bg-parchment-300 border border-parchment-400 rounded-lg text-xs font-bold text-parchment-900 flex items-center justify-center gap-2 transition">
-                                <i class="fa-solid fa-upload"></i> Choose Image File
-                            </button>
-                        </div>
-
-                        <!-- Upload Preview Bar -->
-                        <div id="imageUploadStatus" class="hidden flex items-center gap-3 p-2 bg-parchment-100 rounded border border-parchment-300 text-xs">
-                            <img id="imagePreviewThumb" src="" alt="Thumbnail" class="w-10 h-10 object-cover rounded border border-parchment-400" loading="lazy" decoding="async">
-                            <div class="flex-1 overflow-hidden">
-                                <p id="imageFileName" class="font-semibold text-parchment-900 truncate">image.png</p>
-                                <p id="imageUploadProgress" class="text-wax-gold text-[11px]"><i class="fa-solid fa-circle-notch fa-spin"></i> Ready to upload...</p>
-                            </div>
-                            <button type="button" onclick="clearImageAttachment()" class="text-red-700 hover:text-red-900 p-1">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                    </div>
+<section id="view-dispatch" class="tab-view block space-y-5">
+    <div class="parchment-card rounded-2xl border-2 border-parchment-400 shadow-xl overflow-hidden">
+        <div class="p-4 sm:p-6 border-b-2 border-parchment-300 bg-parchment-100/70">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-full bg-wax-gold text-parchment-900 flex items-center justify-center shadow">
+                    <i class="fa-solid fa-envelope-open-text text-lg"></i>
                 </div>
-
-                <!-- Coordinates & Dispatch Controls (Right Column) -->
-                <div class="lg:col-span-5 space-y-6">
-                    
-                    <!-- Distance & GPS Setup Card -->
-                    <div class="parchment-card rounded-xl p-6 border-2 border-parchment-400 shadow-xl space-y-5">
-                        <div class="border-b-2 border-parchment-300 pb-3 flex justify-between items-center">
-                            <h3 class="font-cinzel font-bold text-lg text-parchment-900 flex items-center gap-2">
-                                <i class="fa-solid fa-compass text-wax-red"></i> Route Coordinates
-                            </h3>
-                            <button onclick="useCurrentLocationForSender()" class="text-xs font-bold bg-wax-gold/20 hover:bg-wax-gold/30 text-sepia-dark border border-wax-gold/40 px-2.5 py-1 rounded transition flex items-center gap-1">
-                                <i class="fa-solid fa-location-crosshairs text-wax-red"></i> My GPS
-                            </button>
-                        </div>
-
-                        <!-- Presets Selector -->
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-parchment-800 mb-1">Quick Route Presets</label>
-                            <select id="presetRouteSelect" onchange="applyRoutePreset(this.value)" class="w-full bg-parchment-100 border border-parchment-400 rounded-lg px-3 py-2 text-xs font-semibold text-parchment-900 outline-none focus:ring-2 focus:ring-wax-gold">
-                                <option value="custom">Custom Coordinates / Drag Map</option>
-                                <option value="paris_london">Paris to London (344 km)</option>
-                                <option value="ny_boston">New York to Boston (306 km)</option>
-                                <option value="tokyo_kyoto">Tokyo to Kyoto (370 km)</option>
-                                <option value="local">Local Town Flight (12.5 km - Short Test)</option>
-                            </select>
-                        </div>
-
-                        <!-- Coordinates Inputs -->
-                        <div class="space-y-4">
-                            <!-- Sender Coords -->
-                            <div class="bg-parchment-200/50 p-3 rounded-lg border border-parchment-300">
-                                <span class="text-xs font-bold text-wax-red uppercase tracking-wide block mb-2 flex items-center justify-between">
-                                    <span><i class="fa-solid fa-house-chimney text-sepia-accent"></i> Sender Location</span>
-                                    <span class="text-[10px] text-parchment-800 font-normal">(Origin • Manual / GPS)</span>
-                                </span>
-                                <div class="grid grid-cols-2 gap-2 text-xs">
-                                    <div>
-                                        <label class="text-[10px] text-parchment-800 uppercase">Latitude</label>
-                                        <input type="number" step="any" id="senderLat" value="48.8566" oninput="calculateDistancePreview()" class="w-full bg-parchment-100 border border-parchment-400 rounded px-2 py-1 font-mono text-xs">
-                                    </div>
-                                    <div>
-                                        <label class="text-[10px] text-parchment-800 uppercase">Longitude</label>
-                                        <input type="number" step="any" id="senderLng" value="2.3522" oninput="calculateDistancePreview()" class="w-full bg-parchment-100 border border-parchment-400 rounded px-2 py-1 font-mono text-xs">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Receiver Coords -->
-                            <div class="bg-parchment-200/50 p-3 rounded-lg border border-parchment-300">
-                                <span class="text-xs font-bold text-wax-red uppercase tracking-wide block mb-2 flex items-center justify-between">
-                                    <span><i class="fa-solid fa-location-dot text-wax-red"></i> Receiver Location</span>
-                                    <span class="text-[10px] text-parchment-800 font-normal">(Destination)</span>
-                                </span>
-                                <div class="grid grid-cols-2 gap-2 text-xs">
-                                    <div>
-                                        <label class="text-[10px] text-parchment-800 uppercase">Latitude</label>
-                                        <input type="number" step="any" id="receiverLat" value="51.5074" oninput="calculateDistancePreview()" class="w-full bg-parchment-100 border border-parchment-400 rounded px-2 py-1 font-mono text-xs">
-                                    </div>
-                                    <div>
-                                        <label class="text-[10px] text-parchment-800 uppercase">Longitude</label>
-                                        <input type="number" step="any" id="receiverLng" value="-0.1278" oninput="calculateDistancePreview()" class="w-full bg-parchment-100 border border-parchment-400 rounded px-2 py-1 font-mono text-xs">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Distance Preview Box -->
-                        <div class="bg-parchment-900 text-parchment-100 p-4 rounded-xl border-2 border-wax-gold shadow-md text-center space-y-1">
-                            <span class="text-xs uppercase tracking-widest text-wax-gold font-bold">Flight Calculations</span>
-                            <div class="flex justify-around items-center pt-1">
-                                <div>
-                                    <span class="text-[10px] block text-parchment-400 uppercase">Distance</span>
-                                    <span id="previewDistance" class="font-cinzel text-lg font-bold text-parchment-100">343.5 km</span>
-                                </div>
-                                <div class="h-8 w-px bg-parchment-700"></div>
-                                <div>
-                                    <span class="text-[10px] block text-parchment-400 uppercase">Est. Flight Duration</span>
-                                    <span id="previewDuration" class="font-cinzel text-lg font-bold text-wax-gold">17m 10s</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Release Pigeon Button -->
-                        <button onclick="releasePigeon()" id="releaseBtn" class="w-full py-4 rounded-xl font-cinzel font-bold text-lg text-parchment-100 wax-seal uppercase tracking-wider flex items-center justify-center gap-3">
-                            <i class="fa-solid fa-dove text-2xl"></i> Release Pigeon Into Sky
-                        </button>
-                    </div>
-
+                <div class="min-w-0">
+                    <h2 class="font-cinzel font-bold text-xl text-parchment-900">Write a Letter</h2>
+                    <p class="text-xs text-parchment-700">Email-style private pigeon message</p>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <!-- SECTION 2: LIVE SKY MAP (Mapbox GL JS & Dynamic Tracking) -->
+        <div class="p-4 sm:p-6 space-y-4">
+            <!-- Sender -->
+            <div class="mail-field-card">
+                <div class="mail-field-label"><i class="fa-solid fa-user-pen"></i> From</div>
+                <div class="flex items-center gap-3">
+                    <img id="senderAvatar" src="https://placehold.co/100x100/3d2617/fdfbf7?text=?" class="w-10 h-10 rounded-full border-2 border-wax-gold object-cover" alt="Sender">
+                    <div class="min-w-0 flex-1">
+                        <div id="senderNameDisplay" class="font-bold text-base text-parchment-900 truncate">Loading...</div>
+                        <div id="senderEmailDisplay" class="text-xs text-parchment-600 truncate"></div>
+                    </div>
+                    <label class="sender-privacy-toggle">
+                        <input type="checkbox" id="hideSenderName" onchange="updateSenderPreview()">
+                        <span class="sender-toggle-track"></span>
+                        <span>Hide name</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Recent -->
+            <div id="recentRecipientsSection" class="hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-parchment-800"><i class="fa-solid fa-clock-rotate-left text-wax-gold"></i> Recent use</span>
+                    <button type="button" onclick="clearRecentRecipients()" class="text-[11px] text-parchment-600 underline">Clear</button>
+                </div>
+                <div id="recentRecipientsContainer" class="recent-recipient-row"></div>
+            </div>
+
+            <!-- To / Directory -->
+            <div class="mail-field-card">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="mail-field-label mb-0"><i class="fa-solid fa-users"></i> To</div>
+                    <span id="selectedRecipientStatus" class="text-[11px] text-parchment-600">Choose a member</span>
+                </div>
+                <div id="selectedRecipientChip" class="hidden mb-3"></div>
+                <div class="relative mb-3">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-parchment-400"></i>
+                    <input type="search" id="searchUserInput" oninput="filterUsers()" placeholder="Search member name or email..." autocomplete="off"
+                        class="mobile-input w-full pl-10 pr-3 py-3 rounded-xl text-sm">
+                </div>
+                <div class="directory-title">
+                    <span>Member Directory</span>
+                    <span id="directoryCount" class="text-[11px] font-normal text-parchment-600"></span>
+                </div>
+                <div id="usersListContainer" class="recipient-directory">
+                    <div class="text-sm text-center text-parchment-500 py-5"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading members...</div>
+                </div>
+            </div>
+
+            <!-- Subject -->
+            <div class="mail-field-card">
+                <label class="mail-field-label" for="inputLetterSubject"><i class="fa-solid fa-tag"></i> Subject</label>
+                <input id="inputLetterSubject" type="text" maxlength="180" placeholder="Write the subject..." class="mobile-input w-full px-3 py-3 rounded-xl text-sm">
+            </div>
+
+            <!-- Message -->
+            <div class="mail-field-card">
+                <label class="mail-field-label" for="inputLetterContent"><i class="fa-solid fa-align-left"></i> Message</label>
+                <textarea id="inputLetterContent" rows="8" maxlength="10000" placeholder="Write your letter here..." class="mail-message w-full p-4 rounded-xl text-base leading-7 resize-y"></textarea>
+            </div>
+
+            <!-- Multiple image attachments -->
+            <div class="mail-field-card">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <label class="mail-field-label mb-0"><i class="fa-solid fa-paperclip"></i> Attachments</label>
+                    <span id="attachmentCount" class="text-[11px] text-parchment-600">0 images</span>
+                </div>
+                <input type="file" id="imageFileInput" multiple class="hidden" onchange="handleFileSelect(event)">
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick="document.getElementById('imageFileInput').click()" class="attachment-add-btn">
+                        <i class="fa-solid fa-paperclip"></i><span>Add files</span>
+                    </button>
+                    <span class="text-[11px] text-parchment-600 self-center">Any file type • uploaded securely through GoFile</span>
+                </div>
+                <div id="imageUploadStatus" class="mt-3 space-y-2"></div>
+            </div>
+
+            <!-- Speed -->
+            <div class="speed-card">
+                <div class="flex items-center justify-between gap-3 mb-2">
+                    <div>
+                        <div class="text-xs font-bold uppercase tracking-wider text-parchment-800"><i class="fa-solid fa-gauge-high text-wax-red"></i> Pigeon Speed</div>
+                        <div class="text-[11px] text-parchment-600">Adjust manually before sending</div>
+                    </div>
+                    <strong id="speedValue" class="speed-value">50 km/h</strong>
+                </div>
+                <input id="pigeonSpeedSlider" type="range" min="10" max="120" step="5" value="50" oninput="setPigeonSpeed(this.value)" class="speed-slider">
+                <div class="flex justify-between text-[10px] text-parchment-600 mt-1"><span>10 km/h</span><span>120 km/h</span></div>
+            </div>
+
+            <!-- Hidden internal route fields: required by existing flight engine, not shown to users -->
+            <div class="hidden" aria-hidden="true">
+                <input id="senderLat" value="0"><input id="senderLng" value="0">
+                <input id="receiverLat" value="0"><input id="receiverLng" value="0">
+                <span id="previewDistance"></span><span id="previewDuration"></span>
+            </div>
+
+            <button onclick="releasePigeon()" id="releaseBtn" class="send-letter-btn">
+                <i class="fa-solid fa-paper-plane"></i><span>Send Letter</span>
+            </button>
+            <p class="text-center text-[11px] text-parchment-600">Your letter travels using the recipient's saved location. Route coordinates stay hidden.</p>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION 2: LIVE SKY MAP (Mapbox GL JS & Dynamic Tracking) -->
         <section id="view-map" class="tab-view hidden space-y-4">
             <!-- Sky Tracker Overlay & Status Bar -->
             <div class="parchment-card rounded-xl p-4 border-2 border-parchment-400 shadow-md flex flex-col md:flex-row items-center justify-between gap-4">
@@ -368,7 +341,9 @@
                 <div class="messenger-shell" id="friendLayout">
                     <aside class="messenger-sidebar">
                         <div class="p-3 border-b border-parchment-300">
-                            <div class="relative">
+                            <div class="chat-rooms-heading"><span><i class="fa-solid fa-message"></i> Chat Rooms</span><span id="chatRoomsCount">0</span></div>
+                            <div id="chatRoomsList" class="chat-rooms-list"><div class="chat-room-empty">No recent chats yet.</div></div>
+                            <div class="relative mt-3">
                                 <i class="fa-solid fa-search absolute left-3 top-2.5 text-parchment-400 text-xs"></i>
                                 <input id="friendSearchInput" oninput="filterFriends()" type="text" placeholder="Find friends by name or email..." class="messenger-search w-full rounded-xl pl-8 pr-3 py-2.5 text-xs outline-none focus:ring-2 focus:ring-wax-gold">
                             </div>
@@ -418,7 +393,11 @@
 
                         <div id="friendMessageList" class="chat-messages flex-1 min-h-[350px] max-h-[48vh] overflow-y-auto space-y-2 p-3 hidden"></div>
                         <form id="friendComposer" onsubmit="sendDirectMessage(event)" class="chat-composer hidden p-2 gap-2">
-                            <input id="friendMessageInput" type="text" maxlength="2000" autocomplete="off" placeholder="Write a private message..." class="flex-1 px-3 py-2.5 rounded-xl border border-parchment-400 bg-white text-sm outline-none focus:ring-2 focus:ring-wax-gold">
+                            <label class="chat-attach-btn" title="Send any file via GoFile"><input id="friendImageInput" type="file" multiple hidden onchange="handleChatFileSelect(event)"><i class="fa-solid fa-paperclip"></i></label>
+                            <div class="chat-compose-main">
+                                <div id="chatImagePreview" class="chat-image-preview hidden"></div>
+                                <input id="friendMessageInput" type="text" maxlength="2000" autocomplete="off" placeholder="Write a private message..." class="flex-1 px-3 py-2.5 rounded-xl border border-parchment-400 bg-white text-sm outline-none focus:ring-2 focus:ring-wax-gold">
+                            </div>
                             <button class="chat-send-button" type="submit" aria-label="Send message"><i class="fa-solid fa-paper-plane"></i><span>Send</span></button>
                         </form>
                     </section>
@@ -499,6 +478,11 @@
                 </div>
 
                 <!-- Letter Body Text -->
+                <div id="modalSubjectRow" class="hidden rounded-lg bg-parchment-100 border border-parchment-300 p-3">
+                    <p class="text-[10px] uppercase tracking-wider text-parchment-700">Subject</p>
+                    <p id="modalSubject" class="font-bold text-base text-parchment-900 mt-1"></p>
+                </div>
+
                 <div class="space-y-4">
                     <p class="text-xs font-sans text-parchment-800 uppercase tracking-wider"><i class="fa-solid fa-feather-pointed text-wax-gold"></i> Message Content:</p>
                     <div id="modalBody" class="scroll-textarea p-4 rounded-lg border border-parchment-300 text-lg leading-relaxed font-garamond whitespace-pre-wrap">
@@ -508,10 +492,10 @@
 
                 <!-- Image Attachment Preview -->
                 <div id="modalImageContainer" class="hidden space-y-2">
-                    <p class="text-xs font-sans text-parchment-800 uppercase tracking-wider"><i class="fa-solid fa-image text-wax-gold"></i> Attached Parchment Photograph:</p>
-                    <div class="rounded-xl overflow-hidden border-2 border-parchment-400 shadow-md">
-                        <img id="modalImage" src="" alt="Letter Attachment" class="w-full max-h-80 object-cover" loading="lazy" decoding="async">
-                    </div>
+                    <p class="text-xs font-sans text-parchment-800 uppercase tracking-wider"><i class="fa-solid fa-images text-wax-gold"></i> Attachments:</p>
+                    <div id="modalImagesGrid" class="grid grid-cols-2 gap-2"></div>
+                    <div id="modalFilesGrid" class="space-y-2"></div>
+                    <img id="modalImage" src="" alt="Letter Attachment" class="hidden" loading="lazy" decoding="async">
                 </div>
 
                 <!-- Direct Reply From Read Page -->
