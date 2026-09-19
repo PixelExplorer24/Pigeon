@@ -578,8 +578,14 @@
         </button>
     </nav>
 
-    <script src="./assets/js/app.js?v=8" defer></script>
-    <script src="./assets/js/lazy-mapbox.js?v=8" defer></script>
+    <script>
+window.addEventListener('DOMContentLoaded', function(){
+  const nav=document.getElementById('mobileBottomNav');
+  if(nav){ nav.querySelectorAll('.mobile-nav-btn').forEach(btn=>{btn.style.visibility='visible'; btn.style.opacity='1';}); }
+});
+</script>
+<script src="./assets/js/app.js?v=9" defer></script>
+    <script src="./assets/js/lazy-mapbox.js?v=9" defer></script>
     <script>if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));</script>
 </body>
 </html>
