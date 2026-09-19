@@ -63,7 +63,9 @@
             authStateResolved = true;
 
             const overlay = document.getElementById('loginOverlay');
+            const mobileNav = document.getElementById('mobileBottomNav');
             if (user && !user.isAnonymous && user.email) {
+                mobileNav?.classList.remove('nav-auth-hidden');
                 if (overlay) {
                     // It may already be hidden while Firebase restores the session.
                     overlay.classList.add('opacity-0', 'pointer-events-none');
@@ -90,6 +92,8 @@
                 listenToChatRooms();
                 setTimeout(()=>{initComposeUI();renderSmartNotices();updateProfileStats();}, 200);
             } else {
+                mobileNav?.classList.add('nav-auth-hidden');
+                mobileNav?.classList.remove('mobile-nav-hidden');
                 // Only show login after Firebase has definitively reported that there is
                 // no valid persisted Google/email session. Never flash it during reload.
                 if (overlay && authStateResolved) {
@@ -870,7 +874,12 @@ window.filterUsers = function() {
             document.getElementById('friendChatName').textContent=friend.displayName||friend.email||'Friend';
             document.getElementById('friendChatAvatar').src=friend.photoURL||'https://placehold.co/100x100/3d2617/fdfbf7?text=?';
             const isFriend=allFriendsList.some(f=>f.uid===uid);
-            document.getElementById('friendChatStatus').textContent=isFriend?'Friend • Private message room':'Profile preview • Add friend to unlock messaging';
+            const hasExistingConversation = chatRoomMessages.some(m =>
+                (m.senderUid===currentUser?.uid && m.receiverUid===uid) ||
+                (m.senderUid===uid && m.receiverUid===currentUser?.uid)
+            );
+            const canMessage = isFriend || hasExistingConversation;
+            document.getElementById('friendChatStatus').textContent=canMessage?'Private message room':'Profile preview • Add friend to unlock messaging';
             document.getElementById('chatPigeonBtn')?.classList.remove('hidden');
             document.getElementById('chatLocationBtn')?.classList.toggle('hidden',!friend.coords);
             document.getElementById('friendProfileStrip')?.classList.remove('hidden');
@@ -879,7 +888,7 @@ window.filterUsers = function() {
             document.getElementById('friendDistanceText').textContent=distance==null?'Distance unavailable':(distance<1?Math.round(distance*1000)+' m from your saved location':distance.toFixed(1)+' km from your saved location');
 
             const empty=document.getElementById('friendMessengerEmpty'), list=document.getElementById('friendMessageList'), composer=document.getElementById('friendComposer');
-            if(isFriend){ empty?.classList.add('hidden'); list?.classList.remove('hidden'); composer?.classList.remove('hidden'); }
+            if(canMessage){ empty?.classList.add('hidden'); list?.classList.remove('hidden'); composer?.classList.remove('hidden'); }
             else { empty?.classList.remove('hidden'); list?.classList.add('hidden'); composer?.classList.add('hidden'); }
 
             if(unsubscribeMessagesA) unsubscribeMessagesA(); if(unsubscribeMessagesB) unsubscribeMessagesB();
@@ -966,7 +975,12 @@ window.filterUsers = function() {
             event.preventDefault();
             const input=document.getElementById('friendMessageInput'); const textValue=(input?.value||'').trim();
             if(!currentUser||!selectedFriendObj)return;
-            const isFriend=allFriendsList.some(f=>f.uid===selectedFriendObj.uid); if(!isFriend){alert('Accept the friend request first to start direct messaging.');return;}
+            const isFriend=allFriendsList.some(f=>f.uid===selectedFriendObj.uid);
+            const hasExistingConversation = chatRoomMessages.some(m =>
+                (m.senderUid===currentUser.uid && m.receiverUid===selectedFriendObj.uid) ||
+                (m.senderUid===selectedFriendObj.uid && m.receiverUid===currentUser.uid)
+            );
+            if(!isFriend && !hasExistingConversation){alert('Accept the friend request first to start direct messaging.');return;}
             if(!textValue && !selectedChatImages.length && !selectedChatFiles.length)return;
             const sendBtn=document.querySelector('#friendComposer .chat-send-button'); if(sendBtn){sendBtn.disabled=true;sendBtn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';} 
             try{
