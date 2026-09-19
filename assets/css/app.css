@@ -888,3 +888,72 @@
         }
 
     
+/* =========================================================
+   DIGITAL PIGEON — SINGLE MOBILE APP EXPERIENCE
+   The same compact mobile UI is used on phones, tablets and desktop.
+========================================================= */
+:root { --app-width: 520px; --app-red:#8b1e1e; --app-red-dark:#581111; --app-gold:#c59b27; --app-bg:#f4ebe1; }
+html, body { background:var(--app-bg) !important; }
+body { width:100%; min-height:100dvh; overflow:hidden; padding-bottom:0 !important; }
+#appTopHeader { position:fixed !important; top:0 !important; left:50% !important; right:auto !important; transform:translateX(-50%); width:min(100vw,var(--app-width)); height:64px; min-height:64px; z-index:2500 !important; }
+#appTopHeader .app-top-header-inner { height:64px; padding:8px 12px !important; }
+main { width:min(100vw,var(--app-width)) !important; max-width:var(--app-width) !important; margin:0 auto !important; padding:74px 10px 82px !important; height:100dvh !important; overflow-y:auto !important; -webkit-overflow-scrolling:touch; }
+main > .flex.border-b-2 { display:none !important; }
+.tab-view { width:100% !important; min-height:calc(100dvh - 146px); padding:0 !important; }
+.mobile-bottom-nav { display:grid !important; grid-template-columns:repeat(4,1fr); position:fixed !important; left:50% !important; right:auto !important; transform:translateX(-50%); width:min(calc(100vw - 16px),504px); bottom:8px !important; height:64px !important; z-index:2800 !important; }
+.mobile-nav-btn { min-width:0; }
+
+/* Messenger is a true one-screen mobile chat. */
+#view-friends { min-height:calc(100dvh - 146px) !important; }
+#view-friends .messenger-shell { display:block !important; min-height:calc(100dvh - 146px) !important; height:calc(100dvh - 146px) !important; }
+#view-friends .messenger-sidebar { width:100%; height:100%; min-height:0; border-radius:18px; }
+#view-friends .messenger-conversation { width:100%; height:100%; min-height:0; border-radius:18px; }
+#view-friends .messenger-shell.chat-open .messenger-sidebar { display:none !important; }
+#view-friends .messenger-shell.chat-open .messenger-conversation { display:flex !important; }
+#view-friends .chat-messages { min-height:0 !important; max-height:none !important; flex:1 1 auto; padding:12px 10px !important; background:#0f1720 !important; background-image:radial-gradient(rgba(197,155,39,.08) .7px,transparent .7px) !important; background-size:22px 22px !important; }
+#view-friends .chat-composer { flex:0 0 auto; display:flex; padding:9px !important; gap:7px !important; background:#17212b !important; border-top:1px solid rgba(197,155,39,.28) !important; padding-bottom:max(9px, env(safe-area-inset-bottom)) !important; }
+#view-friends #friendMessageInput { min-width:0; background:#24313d !important; color:#fff !important; border:1px solid rgba(255,255,255,.12) !important; }
+#view-friends #friendMessageInput::placeholder { color:#aab7c4 !important; }
+#view-friends #friendComposer button[type="submit"] { flex:0 0 48px; width:48px !important; height:46px; border-radius:14px !important; background:linear-gradient(135deg,#c59b27,#e0bd55) !important; color:#26160c !important; display:flex !important; align-items:center; justify-content:center; box-shadow:0 5px 14px rgba(197,155,39,.25); }
+#view-friends #friendComposer button[type="submit"] i { font-size:17px; }
+
+/* Explicit chat bubbles: never depend on Tailwind's runtime color generation. */
+#friendMessageList .message-row { display:flex; width:100%; margin:3px 0; }
+#friendMessageList .message-row.mine { justify-content:flex-end; }
+#friendMessageList .message-row.theirs { justify-content:flex-start; }
+#friendMessageList .message-bubble { max-width:82%; padding:9px 11px; border-radius:17px; font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; line-height:1.45; word-break:break-word; box-shadow:0 3px 10px rgba(0,0,0,.14); }
+#friendMessageList .message-bubble.mine { background:linear-gradient(135deg,#8b1e1e,#b52b2b) !important; color:#fff !important; border-bottom-right-radius:5px; }
+#friendMessageList .message-bubble.theirs { background:#263442 !important; color:#f5f7fa !important; border:1px solid rgba(255,255,255,.08); border-bottom-left-radius:5px; }
+#friendMessageList .message-meta { margin-top:4px; font-size:8px; opacity:.72; display:flex; align-items:center; gap:7px; }
+#friendMessageList .message-bubble.mine .message-meta { justify-content:flex-end; color:#ffe9e9; }
+#friendMessageList .message-bubble.theirs .message-meta { justify-content:flex-start; color:#c4ced8; }
+#friendMessageList .message-delete { border:0; background:transparent; color:inherit; font-size:8px; padding:0; text-decoration:underline; opacity:.8; }
+
+/* Compact mobile-app styling for the whole interface. */
+.parchment-card { border-radius:18px !important; }
+.app-brand-subtitle { display:none !important; }
+.app-brand-title { font-size:16px !important; }
+.profile-trigger { width:40px !important; height:40px !important; }
+#view-friends .messenger-toolbar { border-radius:18px 18px 0 0; }
+#view-friends .messenger-search { font-size:12px; }
+#view-friends .messenger-person { padding:10px !important; }
+#view-friends .friend-chat-card { border-radius:18px !important; overflow:hidden; }
+#view-friends .chat-header { min-height:58px; }
+#view-friends .friend-chat-back { width:38px !important; height:38px !important; }
+
+/* Safe-area support for modern Android/iOS browsers. */
+#appTopHeader { padding-top:env(safe-area-inset-top); box-sizing:content-box; }
+.mobile-bottom-nav { margin-bottom:env(safe-area-inset-bottom); }
+
+/* Mobile app map container on every screen size. */
+#view-map { position:fixed !important; top:64px !important; bottom:0 !important; left:50% !important; transform:translateX(-50%); width:min(100vw,var(--app-width)) !important; height:auto !important; min-height:0 !important; margin:0 !important; padding:0 !important; z-index:1 !important; }
+#view-map > .parchment-card { top:10px !important; left:10px !important; right:10px !important; }
+#view-map > .relative { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
+#leafletMap { width:100% !important; height:100% !important; }
+
+@media (min-width:521px) {
+    body::before { content:''; position:fixed; inset:0; background:#e7ddd2; z-index:-2; }
+    body::after { content:''; position:fixed; top:0; bottom:0; left:50%; transform:translateX(-50%); width:min(100vw,var(--app-width)); background:var(--app-bg); z-index:-1; box-shadow:0 0 45px rgba(38,22,12,.12); pointer-events:none; }
+}
+#view-friends .chat-send-button { flex:0 0 74px; width:74px; min-height:46px; border:0; border-radius:14px; background:linear-gradient(135deg,#c59b27,#e0bd55) !important; color:#26160c !important; display:flex !important; align-items:center; justify-content:center; gap:6px; font:700 11px 'Plus Jakarta Sans',sans-serif; box-shadow:0 5px 14px rgba(197,155,39,.25); cursor:pointer; }
+#view-friends .chat-send-button i { font-size:15px; }
