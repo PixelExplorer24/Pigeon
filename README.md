@@ -11,3 +11,9 @@ This build keeps the existing Digital Pigeon features and adds:
 
 ## Firebase / ImgBB
 The project continues using the existing Firebase project and ImgBB upload flow already configured in the app. Firestore security rules must allow the existing user/message collections and the new `activities` collection for persistent activity history.
+
+
+## v10 mobile content-safe update
+- Adds bottom clearance so normal mobile content cannot be hidden behind fixed navigation.
+- Fullscreen Messenger hides bottom navigation while a chat is open, keeping the composer visible.
+- Map and telemetry are raised above the navigation safe area.
