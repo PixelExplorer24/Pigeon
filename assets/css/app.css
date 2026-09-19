@@ -1332,3 +1332,13 @@ body{padding-bottom:86px}
     margin-bottom: 0 !important;
   }
 }
+
+
+/* v11 AUTH + CHAT COMPOSER SAFETY FIX */
+.mobile-bottom-nav.nav-auth-hidden{display:none!important;visibility:hidden!important;pointer-events:none!important;}
+@media(max-width:767px){
+  #mobileBottomNav.mobile-bottom-nav.nav-auth-hidden{display:none!important;}
+  .messenger-shell.chat-open .messenger-conversation{display:flex!important;flex-direction:column!important;}
+  .messenger-shell.chat-open #friendComposer.chat-composer:not(.hidden){display:flex!important;visibility:visible!important;opacity:1!important;position:relative!important;flex:0 0 auto!important;min-height:58px!important;}
+  .messenger-shell.chat-open #friendMessageList:not(.hidden){display:block!important;flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;}
+}
