@@ -1255,3 +1255,80 @@ body{padding-bottom:86px}
     padding-bottom: 84px !important;
   }
 }
+
+
+/* =========================================================
+   v10 — MOBILE CONTENT SAFE AREA
+   No page content may be hidden behind the fixed bottom nav.
+   Full-screen Messenger hides the nav while the composer is open.
+========================================================= */
+@media (max-width: 767px) {
+  :root { --mobile-nav-clearance: calc(88px + env(safe-area-inset-bottom)); }
+
+  /* Normal scrollable views get enough bottom breathing room. */
+  main {
+    padding-bottom: var(--mobile-nav-clearance) !important;
+  }
+  .tab-view {
+    padding-bottom: 12px !important;
+    scroll-margin-bottom: var(--mobile-nav-clearance) !important;
+  }
+
+  /* Messenger room list / non-fullscreen conversation never sits under nav. */
+  #view-friends {
+    padding-bottom: 12px !important;
+  }
+  #view-friends > .parchment-card {
+    margin-bottom: 0 !important;
+  }
+  #view-friends .messenger-shell:not(.chat-open) {
+    padding-bottom: 8px !important;
+  }
+
+  /* Inbox and dispatch cards keep their last controls above the nav. */
+  #view-dispatch, #view-nest {
+    padding-bottom: var(--mobile-nav-clearance) !important;
+  }
+
+  /* The map itself must stop above the navigation bar. */
+  #view-map {
+    bottom: var(--mobile-nav-clearance) !important;
+    height: auto !important;
+  }
+  #view-map > .relative { bottom: 0 !important; }
+  #mapTelemetryOverlay { bottom: 92px !important; }
+
+  /* When a chat is fullscreen, the bottom nav is intentionally removed,
+     so the message composer can never be covered by it. */
+  #mobileBottomNav.mobile-nav-hidden {
+    display: none !important;
+  }
+  body:has(.messenger-shell.chat-open) {
+    padding-bottom: 0 !important;
+    overflow: hidden !important;
+  }
+  body:has(.messenger-shell.chat-open) main {
+    padding-bottom: 0 !important;
+  }
+  .messenger-shell.chat-open .messenger-conversation {
+    padding-bottom: 0 !important;
+  }
+  .messenger-shell.chat-open .chat-messages {
+    padding-bottom: 12px !important;
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+  }
+  .messenger-shell.chat-open .chat-composer {
+    position: relative !important;
+    flex: 0 0 auto !important;
+    z-index: 10 !important;
+    padding-bottom: calc(9px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Fixed navigation itself remains above every normal page element. */
+  #mobileBottomNav.mobile-bottom-nav {
+    bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+}
