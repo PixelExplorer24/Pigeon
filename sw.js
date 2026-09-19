@@ -1,4 +1,4 @@
-const CACHE = 'digital-pigeon-static-v7';
+const CACHE = 'digital-pigeon-static-v8';
 const STATIC = [
   './',
   './index.html',
