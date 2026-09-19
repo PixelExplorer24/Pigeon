@@ -39,6 +39,14 @@
         let unsubscribeMessagesB = null;
         let messageCache = [];
         let friendsListenersStarted = false;
+        let unsubscribeChatRoomsA = null;
+        let unsubscribeChatRoomsB = null;
+        let chatRoomMessages = [];
+        let unsubscribeActivity = null;
+        let activityItems = [];
+        let selectedChatImages = [];
+        let selectedChatFiles = [];
+        let selectedLetterFiles = [];
 
 
         // Keep the Firebase session locally so a page reload does not sign the user out.
@@ -78,6 +86,9 @@
                 requestAndSaveLocation(user);
                 listenToPigeons();
                 listenToUsers();
+                listenToActivity();
+                listenToChatRooms();
+                setTimeout(()=>{initComposeUI();renderSmartNotices();updateProfileStats();}, 200);
             } else {
                 // Only show login after Firebase has definitively reported that there is
                 // no valid persisted Google/email session. Never flash it during reload.
@@ -156,6 +167,69 @@
             if (senderAvatar) senderAvatar.src = photo;
         }
 
+        function getActivityCollectionRef() {
+            return getPublicDataCollection().collection('activities');
+        }
+        async function logActivity(type, title, body, meta={}) {
+            if (!currentUser) return;
+            try {
+                await getActivityCollectionRef().add({uid:currentUser.uid,type,title,body,meta,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+            } catch(e) { console.warn('Activity log unavailable:',e); }
+        }
+        function formatActivityTime(v) {
+            try { const ms=v?.toMillis?v.toMillis():Number(v||0); if(!ms)return 'Just now'; return new Date(ms).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(e){return '';}
+        }
+        function renderActivityList() {
+            const box=document.getElementById('activityList'); if(!box)return;
+            const virtual=[];
+            (incomingFriendRequests||[]).forEach(r=>virtual.push({id:'req-'+r.id,type:'friend',title:'New friend request',body:'Someone sent you a friend request.',createdAt:r.createdAt||0}));
+            (window.pigeonsList||[]).filter(p=>p.direction==='incoming').slice(0,20).forEach(p=>virtual.push({id:'pigeon-'+p.id,type:'pigeon',title:p.status==='delivered'?'Letter received':'Incoming pigeon',body:`${p.senderName||'A member'} sent you a pigeon letter.`,createdAt:p.dispatchTime||0}));
+            const items=[...activityItems,...virtual].sort((a,b)=>(b.createdAt?.toMillis?b.createdAt.toMillis():Number(b.createdAt||0))-(a.createdAt?.toMillis?a.createdAt.toMillis():Number(a.createdAt||0))).slice(0,100);
+            document.getElementById('profileStatActivity') && (document.getElementById('profileStatActivity').textContent=items.length);
+            const badge=document.getElementById('profileActivityBadge'); if(badge){badge.textContent=items.length;badge.classList.toggle('hidden',items.length===0);}
+            if(!items.length){box.innerHTML='<div class="activity-empty"><i class="fa-solid fa-bolt"></i><span>No activity yet.</span></div>';return;}
+            const icons={message:'fa-message',pigeon:'fa-dove',friend:'fa-user-group',profile:'fa-user-pen',system:'fa-bell'};
+            box.innerHTML=items.map(x=>`<div class="activity-item"><div class="activity-icon"><i class="fa-solid ${icons[x.type]||icons.system}"></i></div><div class="activity-copy"><strong>${escapeHtmlSafe(x.title||'Activity')}</strong><p>${escapeHtmlSafe(x.body||'')}</p><small>${escapeHtmlSafe(formatActivityTime(x.createdAt))}</small></div></div>`).join('');
+        }
+        function listenToActivity() {
+            if(unsubscribeActivity) unsubscribeActivity();
+            if(!currentUser) return;
+            unsubscribeActivity=getActivityCollectionRef().where('uid','==',currentUser.uid).limit(100).onSnapshot(snap=>{activityItems=snap.docs.map(d=>({id:d.id,...d.data()}));renderActivityList();},err=>console.warn('Activity listener:',err));
+        }
+        window.openActivityPanel=function(){
+            closeProfileModal();
+            const m=document.getElementById('activityModal'); if(m){m.classList.remove('hidden');document.body.classList.add('overflow-hidden');renderActivityList();}
+        };
+        window.closeActivityPanel=function(){document.getElementById('activityModal')?.classList.add('hidden');if(document.getElementById('profileEditorModal')?.classList.contains('hidden'))document.body.classList.remove('overflow-hidden');};
+        window.handleActivityBackdrop=function(e){if(e.target?.id==='activityModal')closeActivityPanel();};
+        window.openProfileEditor=function(){
+            const p=currentUserProfile||{}; document.getElementById('profileEditName').value=getProfileDisplayName();document.getElementById('profileEditPhoto').value=p.photoURL||'';document.getElementById('profileEditBio').value=p.bio||'';
+            document.getElementById('profileEditorModal')?.classList.remove('hidden');document.body.classList.add('overflow-hidden');
+        };
+        window.closeProfileEditor=function(){document.getElementById('profileEditorModal')?.classList.add('hidden');if(document.getElementById('activityModal')?.classList.contains('hidden')&&document.getElementById('profileModal')?.classList.contains('hidden'))document.body.classList.remove('overflow-hidden');};
+        window.handleProfileEditorBackdrop=function(e){if(e.target?.id==='profileEditorModal')closeProfileEditor();};
+        window.saveProfile=async function(e){
+            e.preventDefault(); if(!currentUser)return;
+            const btn=document.getElementById('profileSaveBtn'); const name=document.getElementById('profileEditName').value.trim(); const photo=document.getElementById('profileEditPhoto').value.trim(); const bio=document.getElementById('profileEditBio').value.trim();
+            if(!name)return; btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+            try { await getUsersCollectionRef().doc(currentUser.uid).set({displayName:name,photoURL:photo||currentUser.photoURL||null,bio,profileUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}); currentUserProfile={...(currentUserProfile||{}),displayName:name,photoURL:photo||currentUser.photoURL||null,bio}; syncProfileUI(); await logActivity('profile','Profile updated','Your profile information was updated.'); closeProfileEditor(); } catch(err){console.error(err);alert('Profile could not be saved.');} finally{btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-check"></i> Save Profile';}
+        };
+        function updateProfileStats(){
+            const sent=(window.pigeonsList||[]).filter(x=>x.senderUid===currentUser?.uid).length, received=(window.pigeonsList||[]).filter(x=>x.receiverUid===currentUser?.uid).length;
+            const a=document.getElementById('profileStatSent'),b=document.getElementById('profileStatReceived'),c=document.getElementById('profileStatFriends');if(a)a.textContent=sent;if(b)b.textContent=received;if(c)c.textContent=(allFriendsList||[]).length;
+        }
+        function renderSmartNotices() {
+            const bar=document.getElementById('smartNoticeBar'),list=document.getElementById('smartNoticeList');if(!bar||!list)return;
+            const notices=[];
+            if(currentUser && currentUserProfile?.locationPermission==='denied') notices.push({key:'location',icon:'fa-location-dot',title:'Location access is off',body:'Location is needed for distance-based pigeon delivery.'});
+            if(currentUser && !currentUserProfile?.bio) notices.push({key:'profile',icon:'fa-user-pen',title:'Complete your profile',body:'Add a bio and profile photo from your profile menu.'});
+            if(!navigator.onLine) notices.push({key:'offline',icon:'fa-wifi',title:'You are offline',body:'Some realtime features may pause until you reconnect.'});
+            const dismissed=JSON.parse(localStorage.getItem('pigeonDismissedNotices')||'[]'); const active=notices.filter(n=>!dismissed.includes(n.key));
+            bar.classList.toggle('hidden',active.length===0); list.innerHTML=active.map(n=>`<div class="smart-notice"><i class="fa-solid ${n.icon}"></i><div><strong>${escapeHtmlSafe(n.title)}</strong><span>${escapeHtmlSafe(n.body)}</span></div></div>`).join('');
+        }
+        window.dismissSmartNotices=function(){const keys=Array.from(document.querySelectorAll('.smart-notice')).map(()=>null);const bar=document.getElementById('smartNoticeBar');if(bar)bar.classList.add('hidden');localStorage.setItem('pigeonDismissedNotices',JSON.stringify(['location','profile','offline']));};
+        window.addEventListener('online',renderSmartNotices);window.addEventListener('offline',renderSmartNotices);
+
         window.openProfileModal = function() {
             if (!currentUser || currentUser.isAnonymous) return;
             syncProfileUI();
@@ -221,8 +295,11 @@
             if (event.key === 'Escape') {
                 const logout = document.getElementById('logoutModal');
                 const profile = document.getElementById('profileModal');
+                const editor = document.getElementById('profileEditorModal'); const activity = document.getElementById('activityModal');
                 if (logout && !logout.classList.contains('hidden')) {
                     closeLogoutModal();
+                } else if (editor && !editor.classList.contains('hidden')) { closeProfileEditor();
+                } else if (activity && !activity.classList.contains('hidden')) { closeActivityPanel();
                 } else if (profile && !profile.classList.contains('hidden')) {
                     closeProfileModal();
                 }
@@ -244,8 +321,8 @@
                 if(latEl)latEl.value=coords.lat;if(lngEl)lngEl.value=coords.lng;calculateDistancePreview();renderFriendsUI();
             },async err=>{
                 console.warn('Location not granted',err);
-                currentUserProfile={...currentUserProfile,...base};
-                syncProfileUI();
+                currentUserProfile={...currentUserProfile,...base,locationPermission:err.code===1?'denied':'unavailable'};
+                syncProfileUI(); renderSmartNotices();
                 try{await userRef.set({...base,locationPermission:err.code===1?'denied':'unavailable'},{merge:true});}catch(e){console.error(e);}
                 renderFriendsUI();
             },{enableHighAccuracy:true,maximumAge:300000,timeout:12000});
@@ -260,7 +337,7 @@
                 snapshot.forEach((docSnap) => {
                     if (docSnap.id === currentUser.uid) {
                         currentUserProfile = {uid: docSnap.id, ...docSnap.data()};
-                        syncProfileUI();
+                        syncProfileUI(); renderSmartNotices(); updateProfileStats();
                     } else list.push({uid: docSnap.id, ...docSnap.data()});
                 });
                 allUsersList = list;
@@ -272,44 +349,89 @@
             });
         }
 
+        function getRecentRecipients() {
+            try { return JSON.parse(localStorage.getItem(`pigeonRecent_${currentUser?.uid || 'guest'}`) || '[]'); } catch(e) { return []; }
+        }
+        function saveRecentRecipient(user) {
+            if (!currentUser || !user) return;
+            let list = getRecentRecipients().filter(x => x.uid !== user.uid);
+            list.unshift({uid:user.uid,displayName:user.displayName,email:user.email,photoURL:user.photoURL});
+            list = list.slice(0, 8);
+            localStorage.setItem(`pigeonRecent_${currentUser.uid}`, JSON.stringify(list));
+            renderRecentRecipients();
+        }
+        window.clearRecentRecipients = function() {
+            if (currentUser) localStorage.removeItem(`pigeonRecent_${currentUser.uid}`);
+            renderRecentRecipients();
+        };
+        function renderRecentRecipients() {
+            const section=document.getElementById('recentRecipientsSection'), box=document.getElementById('recentRecipientsContainer');
+            if(!section||!box) return;
+            const recents=getRecentRecipients().filter(r=>allUsersList.some(u=>u.uid===r.uid));
+            if(!recents.length){section.classList.add('hidden');box.innerHTML='';return;}
+            section.classList.remove('hidden');
+            box.innerHTML=recents.map(r=>`<button type="button" class="recent-recipient" onclick="selectRecipient('${r.uid}')">
+                <img src="${r.photoURL||'https://placehold.co/100x100/3d2617/fdfbf7?text=?'}" alt="">
+                <span>${escapeHtmlSafe(r.displayName||r.email||'Member')}</span>
+            </button>`).join('');
+        }
+
+        function renderSelectedRecipient() {
+            const chip=document.getElementById('selectedRecipientChip'), status=document.getElementById('selectedRecipientStatus');
+            if(!chip||!status) return;
+            if(!selectedRecipientObj){ chip.classList.add('hidden'); chip.innerHTML=''; status.textContent='Choose a member'; return; }
+            chip.classList.remove('hidden');
+            chip.innerHTML=`<div class="selected-recipient-chip">
+                <img src="${selectedRecipientObj.photoURL||'https://placehold.co/100x100/3d2617/fdfbf7?text=?'}" alt="">
+                <div class="min-w-0 flex-1"><strong>${escapeHtmlSafe(selectedRecipientObj.displayName||'Member')}</strong><small>${escapeHtmlSafe(selectedRecipientObj.email||'')}</small></div>
+                <button type="button" onclick="clearSelectedRecipient()" aria-label="Remove recipient"><i class="fa-solid fa-xmark"></i></button>
+            </div>`;
+            status.textContent='Recipient selected';
+        }
+        window.clearSelectedRecipient=function(){selectedRecipientObj=null;renderSelectedRecipient();renderUsersList(allUsersList);};
+
         function renderUsersList(users) {
             const container = document.getElementById('usersListContainer');
             if (!container) return;
-            if (users.length === 0) {
-                container.innerHTML = '<div class="text-xs text-center text-parchment-500 py-4">No other citizens found.</div>';
-                return;
-            }
-
-            container.innerHTML = users.map(u => `
-                <div onclick="selectRecipient('${u.uid}')" class="flex items-center gap-3 p-2 rounded cursor-pointer transition hover:bg-wax-gold/20 ${selectedRecipientObj?.uid === u.uid ? 'bg-wax-gold/30 border border-wax-gold' : ''}">
-                    <img src="${u.photoURL || 'https://placehold.co/100x100/3d2617/fdfbf7?text=?'}" class="w-8 h-8 rounded-full border border-parchment-400">
-                    <div class="flex-1 overflow-hidden">
-                        <div class="text-sm font-bold text-parchment-900 truncate">${u.displayName}</div>
-                        ${u.coords ? `<div class="text-[10px] text-parchment-600"><i class="fa-solid fa-location-dot text-wax-red"></i> Location Available</div>` : `<div class="text-[10px] text-parchment-600">Location Unknown</div>`}
-                    </div>
-                </div>
-            `).join('');
+            const count=document.getElementById('directoryCount'); if(count) count.textContent=`${users.length} member${users.length===1?'':'s'}`;
+            if (!users.length) { container.innerHTML='<div class="empty-directory">No matching member found.</div>'; return; }
+            const recentIds=new Set(getRecentRecipients().map(r=>r.uid));
+            const sorted=[...users].sort((a,b)=>{
+                const ar=recentIds.has(a.uid)?1:0, br=recentIds.has(b.uid)?1:0;
+                if(ar!==br)return br-ar;
+                return String(a.displayName||a.email||'').localeCompare(String(b.displayName||b.email||''));
+            });
+            container.innerHTML=sorted.map(u=>`
+                <div class="recipient-row ${selectedRecipientObj?.uid===u.uid?'selected':''}" onclick="selectRecipient('${u.uid}')">
+                    <img src="${u.photoURL||'https://placehold.co/100x100/3d2617/fdfbf7?text=?'}" alt="">
+                    <div class="recipient-meta"><strong>${escapeHtmlSafe(u.displayName||'Member')}</strong><span>${escapeHtmlSafe(u.email||'')}</span></div>
+                    <button type="button" class="recipient-write-btn" onclick="event.stopPropagation();selectRecipient('${u.uid}')"><i class="fa-solid fa-pen"></i></button>
+                </div>`).join('');
         }
 
         window.selectRecipient = function(uid) {
             const user = allUsersList.find(u => u.uid === uid);
             if (user) {
                 selectedRecipientObj = user;
-                renderUsersList(allUsersList); 
-                
+                saveRecentRecipient(user);
+                renderSelectedRecipient();
+                renderUsersList(allUsersList);
                 if (user.coords) {
-                    const rLat = document.getElementById('receiverLat');
-                    const rLng = document.getElementById('receiverLng');
-                    if(rLat) rLat.value = user.coords.lat.toFixed(6);
-                    if(rLng) rLng.value = user.coords.lng.toFixed(6);
+                    const rLat = document.getElementById('receiverLat'), rLng = document.getElementById('receiverLng');
+                    if(rLat) rLat.value = Number(user.coords.lat).toFixed(6);
+                    if(rLng) rLng.value = Number(user.coords.lng).toFixed(6);
                     calculateDistancePreview();
                 }
             }
         };
 
-        window.filterUsers = function() {
-            const query = document.getElementById('searchUserInput').value.toLowerCase();
-            const filtered = allUsersList.filter(u => u.displayName.toLowerCase().includes(query) || (u.email && u.email.toLowerCase().includes(query)));
+
+window.filterUsers = function() {
+            const query = (document.getElementById('searchUserInput')?.value || '').trim().toLowerCase();
+            const filtered = allUsersList.filter(u =>
+                String(u.displayName||'').toLowerCase().includes(query) ||
+                String(u.email||'').toLowerCase().includes(query)
+            );
             renderUsersList(filtered);
         };
 
@@ -764,7 +886,7 @@
                 const messages=[]; a.forEach(d=>messages.push({id:d.id,...d.data()})); b.forEach(d=>messages.push({id:d.id,...d.data()}));
                 messages.sort((x,y)=>{const tx=x.createdAt?.toMillis?x.createdAt.toMillis():(x.createdAt||0),ty=y.createdAt?.toMillis?y.createdAt.toMillis():(y.createdAt||0);return tx-ty;}); messageCache=messages;
                 const box=document.getElementById('friendMessageList'); if(!box)return;
-                box.innerHTML=messages.map(m=>{const mine=m.senderUid===currentUser.uid; return `<div class="message-row ${mine?'mine':'theirs'}"><div class="message-bubble ${mine?'mine':'theirs'}"><div class="whitespace-pre-wrap break-words">${escapeHtmlSafe(m.text)}</div><div class="message-meta"><span>${escapeHtmlSafe(formatMessageTime(m.createdAt))}</span>${mine?`<button type="button" onclick="deleteDirectMessage('${m.id}')" class="message-delete">Delete</button>`:''}</div></div></div>`}).join('')||'<div style="text-align:center;color:#aab7c4;font-size:12px;padding:32px 8px">No messages yet. Start the private conversation.</div>';
+                box.innerHTML=messages.map(m=>{const mine=m.senderUid===currentUser.uid; const imgs=Array.isArray(m.imageUrls)?m.imageUrls:(m.imageUrl?[m.imageUrl]:[]); return `<div class="message-row ${mine?'mine':'theirs'}"><div class="message-bubble ${mine?'mine':'theirs'}">${m.text?`<div class="whitespace-pre-wrap break-words">${escapeHtmlSafe(m.text)}</div>`:''}${imgs.length?`<div class="chat-message-images">${imgs.map(u=>`<img src="${escapeHtmlSafe(u)}" alt="Shared image" loading="lazy" onclick="window.open(this.src,'_blank')">`).join('')}</div>`:''}${Array.isArray(m.fileAttachments)&&m.fileAttachments.length?`<div class="chat-file-list">${m.fileAttachments.map(f=>`<a class="chat-file-card" href="${escapeHtmlSafe(f.downloadPage||f.directLink||f.url||'#')}" target="_blank" rel="noopener"><i class="fa-solid fa-file-arrow-down"></i><span><strong>${escapeHtmlSafe(f.name||'File')}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))}</small></span></a>`).join('')}</div>`:''}<div class="message-meta"><span>${escapeHtmlSafe(formatMessageTime(m.createdAt))}</span>${mine?`<button type="button" onclick="deleteDirectMessage('${m.id}')" class="message-delete">Delete</button>`:''}</div></div></div>`}).join('')||'<div style="text-align:center;color:#aab7c4;font-size:12px;padding:32px 8px">No messages yet. Start the private conversation.</div>';
                 box.scrollTop=box.scrollHeight;
             };
             unsubscribeMessagesA=msgRef.where('senderUid','==',currentUser.uid).where('receiverUid','==',uid).onSnapshot(render,console.error);
@@ -772,7 +894,22 @@
             await render();
         };
 
-        window.closeFriendChat=function(){document.getElementById('friendLayout')?.classList.remove('chat-open');selectedFriendObj=null;document.getElementById('friendMessengerEmpty')?.classList.remove('hidden');document.getElementById('friendMessageList')?.classList.add('hidden');document.getElementById('friendComposer')?.classList.add('hidden');};
+        function renderChatRooms() {
+            const box=document.getElementById('chatRoomsList'),count=document.getElementById('chatRoomsCount'); if(!box)return;
+            const byUid=new Map();
+            for(const m of chatRoomMessages){const other=m.senderUid===currentUser?.uid?m.receiverUid:m.senderUid;if(!other)continue;const old=byUid.get(other);const mt=m.createdAt?.toMillis?m.createdAt.toMillis():Number(m.createdAt||0);const ot=old?.createdAt?.toMillis?old.createdAt.toMillis():Number(old?.createdAt||0);if(!old||mt>=ot)byUid.set(other,m);}
+            const rooms=[...byUid.entries()].map(([uid,m])=>{const u=allFriendsList.find(x=>x.uid===uid)||allUsersList.find(x=>x.uid===uid)||{uid,displayName:'Member'};return {uid,m,u};}).sort((a,b)=>(b.m.createdAt?.toMillis?b.m.createdAt.toMillis():Number(b.m.createdAt||0))-(a.m.createdAt?.toMillis?a.m.createdAt.toMillis():Number(a.m.createdAt||0)));
+            if(count)count.textContent=rooms.length;if(!rooms.length){box.innerHTML='<div class="chat-room-empty">No recent chats yet.</div>';return;}
+            box.innerHTML=rooms.slice(0,12).map(r=>`<button type="button" class="chat-room-item" onclick="openFriendChat('${r.uid}')"><img src="${escapeHtmlSafe(r.u.photoURL||'https://placehold.co/80x80/3d2617/fdfbf7?text=?')}" alt=""><span class="chat-room-copy"><strong>${escapeHtmlSafe(r.u.displayName||r.u.email||'Member')}</strong><small>${escapeHtmlSafe(r.m.text||((r.m.imageUrls||r.m.imageUrl)?'📷 Image':'Message'))}</small></span><time>${escapeHtmlSafe(formatMessageTime(r.m.createdAt))}</time></button>`).join('');
+        }
+        function listenToChatRooms(){
+            if(unsubscribeChatRoomsA)unsubscribeChatRoomsA();if(unsubscribeChatRoomsB)unsubscribeChatRoomsB();if(!currentUser)return;
+            const ref=getMessagesCollectionRef(); const merge=(snap,side)=>{const incoming=snap.docs.map(d=>({id:d.id,...d.data()}));const ids=new Set(incoming.map(x=>x.id));chatRoomMessages=chatRoomMessages.filter(x=>!ids.has(x.id));chatRoomMessages.push(...incoming);renderChatRooms();};
+            unsubscribeChatRoomsA=ref.where('senderUid','==',currentUser.uid).onSnapshot(s=>merge(s,'sent'),e=>console.warn('Chat rooms sent:',e));
+            unsubscribeChatRoomsB=ref.where('receiverUid','==',currentUser.uid).onSnapshot(s=>merge(s,'received'),e=>console.warn('Chat rooms received:',e));
+        }
+
+        window.closeFriendChat=function(){document.getElementById('friendLayout')?.classList.remove('chat-open');document.getElementById('mobileBottomNav')?.classList.remove('mobile-nav-hidden');selectedFriendObj=null;selectedChatImages=[];selectedChatFiles=[];renderChatImagePreview();renderChatFilePreview();document.getElementById('friendMessengerEmpty')?.classList.remove('hidden');document.getElementById('friendMessageList')?.classList.add('hidden');document.getElementById('friendComposer')?.classList.add('hidden');};
 
         window.sendPigeonToSelectedFriend=function(){
             if(!selectedFriendObj) return alert('First select a person.');
@@ -823,29 +960,26 @@
 
         window.sendDirectMessage = async function(event) {
             event.preventDefault();
-            const input = document.getElementById('friendMessageInput');
-            const textValue = (input?.value || '').trim();
-            if (!currentUser || !selectedFriendObj || !textValue) return;
-
-            const isFriend = allFriendsList.some(f => f.uid === selectedFriendObj.uid);
-            if (!isFriend) {
-                alert('Accept the friend request first to start direct messaging.');
-                return;
-            }
-
-            try {
-                await getMessagesCollectionRef().add({
-                    senderUid: currentUser.uid,
-                    receiverUid: selectedFriendObj.uid,
-                    text: textValue,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                input.value = '';
-            } catch(err) {
-                console.error(err);
-                alert('Message could not be sent. Please check Firestore permissions.');
-            }
+            const input=document.getElementById('friendMessageInput'); const textValue=(input?.value||'').trim();
+            if(!currentUser||!selectedFriendObj)return;
+            const isFriend=allFriendsList.some(f=>f.uid===selectedFriendObj.uid); if(!isFriend){alert('Accept the friend request first to start direct messaging.');return;}
+            if(!textValue && !selectedChatImages.length && !selectedChatFiles.length)return;
+            const sendBtn=document.querySelector('#friendComposer .chat-send-button'); if(sendBtn){sendBtn.disabled=true;sendBtn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';} 
+            try{
+                const imageUrls=[]; for(let i=0;i<selectedChatImages.length;i++){ if(sendBtn)sendBtn.innerHTML=`<i class="fa-solid fa-cloud-arrow-up fa-bounce"></i>`; imageUrls.push(await uploadToImgBB(selectedChatImages[i])); }
+                const fileAttachments=[]; for(let i=0;i<selectedChatFiles.length;i++){ if(sendBtn)sendBtn.innerHTML=`<i class="fa-solid fa-cloud-arrow-up fa-bounce"></i><span>Uploading file ${i+1}/${selectedChatFiles.length}</span>`; fileAttachments.push(await uploadToGoFile(selectedChatFiles[i])); }
+                await getMessagesCollectionRef().add({senderUid:currentUser.uid,receiverUid:selectedFriendObj.uid,text:textValue,imageUrls,imageUrl:imageUrls[0]||'',fileAttachments,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+                await logActivity('message','Message sent',`You sent a private message to ${selectedFriendObj.displayName||selectedFriendObj.email||'a friend'}.`,{receiverUid:selectedFriendObj.uid});
+                if(input)input.value=''; selectedChatImages=[]; selectedChatFiles=[]; renderChatImagePreview(); renderChatFilePreview(); renderChatRooms();
+            }catch(err){console.error(err);alert('Message could not be sent. Please check your connection, upload settings and Firestore permissions.');}
+            finally{if(sendBtn){sendBtn.disabled=false;sendBtn.innerHTML='<i class="fa-solid fa-paper-plane"></i><span>Send</span>';}}
         };
+        window.handleChatImageSelect=function(e){selectedChatImages=[...selectedChatImages,...Array.from(e.target.files||[]).filter(f=>f.type.startsWith('image/'))].slice(0,6);e.target.value='';renderChatImagePreview();};
+        window.removeChatImage=function(i){selectedChatImages.splice(i,1);renderChatImagePreview();};
+        window.handleChatFileSelect=function(e){selectedChatFiles=[...selectedChatFiles,...Array.from(e.target.files||[])].slice(0,10);e.target.value='';renderChatFilePreview();};
+        window.removeChatFile=function(i){selectedChatFiles.splice(i,1);renderChatFilePreview();};
+        function renderChatFilePreview(){const box=document.getElementById('chatImagePreview');if(!box)return;const files=selectedChatFiles; const imgs=selectedChatImages; box.classList.toggle('hidden',!(files.length||imgs.length)); box.innerHTML=[...imgs.map((f,i)=>`<div class="chat-preview-chip"><i class="fa-solid fa-image"></i><span>${escapeHtmlSafe(f.name)}</span><button type="button" onclick="removeChatImage(${i})">×</button></div>`),...files.map((f,i)=>`<div class="chat-preview-chip"><i class="fa-solid fa-file"></i><span>${escapeHtmlSafe(f.name)}</span><button type="button" onclick="removeChatFile(${i})">×</button></div>`)].join('');}
+        function renderChatImagePreview(){const box=document.getElementById('chatImagePreview');if(!box)return;box.classList.toggle('hidden',!selectedChatImages.length);box.innerHTML=selectedChatImages.map((f,i)=>{const u=URL.createObjectURL(f);return `<div><img src="${u}" alt=""><button type="button" onclick="removeChatImage(${i})"><i class="fa-solid fa-xmark"></i></button></div>`}).join('');}
 
         function getPigeonsCollectionRef() {
             return db.collection('artifacts').doc(appId).collection('public').doc('data').collection('pigeons');
@@ -869,7 +1003,11 @@
                 senderUid: pigeonData.senderUid,
                 receiverUid: pigeonData.receiverUid,
                 content: letterData.content,
+                subject: letterData.subject || '',
                 imageUrl: letterData.imageUrl || '',
+                imageUrls: Array.isArray(letterData.imageUrls) ? letterData.imageUrls : (letterData.imageUrl ? [letterData.imageUrl] : []),
+                fileAttachments: Array.isArray(letterData.fileAttachments) ? letterData.fileAttachments : [],
+                senderName: letterData.senderName || pigeonData.senderName || '',
                 estimatedArrival: pigeonData.estimatedArrival,
                 read: false,
                 readAt: null,
@@ -981,16 +1119,16 @@
                 const list = Array.from(byId.values()).sort((a,b) => (b.dispatchTime || 0) - (a.dispatchTime || 0));
                 const fixedSpeedList = list.map(p => {
                     const distanceKm = Number(p.distanceKm) || 0;
-                    const durationSec = Math.max(5, (distanceKm / FIXED_PIGEON_SPEED_KMH) * 3600);
+                    const durationSec = Math.max(5, (distanceKm / (Number(p.pigeonSpeedKmh) || pigeonSpeedSetting)) * 3600);
                     const dispatchTime = Number(p.dispatchTime) || Date.now();
                     return {
                         ...p,
-                        pigeonSpeedKmh: FIXED_PIGEON_SPEED_KMH,
+                        pigeonSpeedKmh: Number(p.pigeonSpeedKmh) || pigeonSpeedSetting,
                         flightDurationSeconds: durationSec,
                         estimatedArrival: dispatchTime + (durationSec * 1000)
                     };
                 });
-                window.pigeonsList = fixedSpeedList;
+                window.pigeonsList = fixedSpeedList; updateProfileStats(); renderActivityList();
                 if (typeof window.onPigeonsDataUpdated === 'function') window.onPigeonsDataUpdated(fixedSpeedList);
             };
 
@@ -1015,7 +1153,9 @@
         let activePigeonId = null;
         // Mapbox configuration. Replace with your PUBLIC Mapbox token.
         const MAPBOX_PUBLIC_TOKEN = 'pk.eyJ1Ijoic2R0MDA3IiwiYSI6ImNtdTRpb3d4aDAwajcyd3BueXBicmVsMGYifQ.V4hCEMUYpAqH1HYip-316g';
-        const FIXED_PIGEON_SPEED_KMH = 50; // Realistic fixed pigeon flight speed
+        const DEFAULT_PIGEON_SPEED_KMH = 50;
+        let pigeonSpeedSetting = Number(localStorage.getItem('pigeonSpeedKmh') || DEFAULT_PIGEON_SPEED_KMH);
+        pigeonSpeedSetting = Math.min(120, Math.max(10, pigeonSpeedSetting));
 
         let leafletMap = null; 
         let senderMarker = null;
@@ -1025,7 +1165,6 @@
         let roadRouteCoordinates = [];
         let roadRouteKey = '';
         let roadRouteLoading = false;
-        let selectedFileBlob = null;
         let audioEnabled = true;
         let audioCtx = null;
         let pigeonAnimationFrame = null;
@@ -1164,7 +1303,7 @@
             const rLng = parseFloat(document.getElementById('receiverLng').value) || 0;
 
             const distKm = haversineDistance({ lat: sLat, lng: sLng }, { lat: rLat, lng: rLng });
-            const speedKmh = FIXED_PIGEON_SPEED_KMH;
+            const speedKmh = pigeonSpeedSetting;
             const durationSec = Math.max(5, (distKm / speedKmh) * 3600);
 
             document.getElementById('previewDistance').innerText = `${distKm.toFixed(1)} km`;
@@ -1186,29 +1325,50 @@
             }
         }
 
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            selectedFileBlob = file;
-            document.getElementById('imageUploadStatus').classList.remove('hidden');
-            document.getElementById('imageFileName').innerText = file.name;
-            document.getElementById('imageUploadProgress').innerHTML = '<i class="fa-solid fa-circle-check text-green-600"></i> File attached ready to fly';
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('imagePreviewThumb').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+        
+        window.setPigeonSpeed = function(value) {
+            pigeonSpeedSetting = Math.min(120, Math.max(10, Number(value)||50));
+            localStorage.setItem('pigeonSpeedKmh', String(pigeonSpeedSetting));
+            const out=document.getElementById('speedValue'); if(out) out.textContent=`${pigeonSpeedSetting} km/h`;
+            calculateDistancePreview();
+        };
+        window.updateSenderPreview = function() {
+            const hide=document.getElementById('hideSenderName')?.checked;
+            const name=document.getElementById('senderNameDisplay'), email=document.getElementById('senderEmailDisplay');
+            if(name) name.textContent=hide?'Hidden sender':(currentUser?.displayName||currentUser?.email?.split('@')[0]||'User');
+            if(email) email.textContent=hide?'':(currentUser?.email||'');
+        };
+        function initComposeUI(){
+            const slider=document.getElementById('pigeonSpeedSlider');
+            if(slider){slider.value=pigeonSpeedSetting;window.setPigeonSpeed(slider.value);}
+            const email=document.getElementById('senderEmailDisplay'); if(email&&currentUser) email.textContent=currentUser.email||'';
+            renderRecentRecipients(); renderSelectedRecipient(); renderUsersList(allUsersList);
         }
 
-        function clearImageAttachment() {
-            selectedFileBlob = null;
-            document.getElementById('imageFileInput').value = '';
-            document.getElementById('imageUploadStatus').classList.add('hidden');
+let selectedFileBlobs = [];
+        function renderAttachmentList() {
+            const box=document.getElementById('imageUploadStatus'), count=document.getElementById('attachmentCount');
+            if(!box) return;
+            if(count) count.textContent=`${selectedFileBlobs.length} file${selectedFileBlobs.length===1?'':'s'}`;
+            box.innerHTML=selectedFileBlobs.map((file,i)=>`
+                <div class="attachment-item">
+                    <div class="attachment-file-icon"><i class="fa-solid ${file.type.startsWith('image/')?'fa-image':'fa-file-lines'}"></i></div>
+                    <div class="min-w-0 flex-1"><strong>${escapeHtmlSafe(file.name)}</strong><small>${formatBytes(file.size)} • ${escapeHtmlSafe(file.type||'Unknown type')}</small></div>
+                    <button type="button" onclick="removeAttachment(${i})"><i class="fa-solid fa-xmark"></i></button>
+                </div>`).join('');
         }
+        window.handleFileSelect = function(event) {
+            const files=Array.from(event.target.files||[]);
+            selectedFileBlobs=[...selectedFileBlobs,...files].slice(0,10);
+            selectedLetterFiles=selectedFileBlobs;
+            event.target.value='';
+            renderAttachmentList();
+        };
+        window.removeAttachment=function(i){selectedFileBlobs.splice(i,1);renderAttachmentList();};
+        function clearImageAttachment() { selectedFileBlobs=[]; renderAttachmentList(); }
+        window.clearImageAttachment=clearImageAttachment;
 
-        // Production ImgBB Upload with hardcoded API key
+// Production ImgBB Upload with hardcoded API key
         async function uploadToImgBB(file) {
             const userApiKey = "1abc9f66636c45ace1d0952e080d153d"; 
             
@@ -1235,92 +1395,79 @@
             });
         }
 
+        // GoFile upload: supports arbitrary file types. The API token was supplied by the owner.
+        const GOFILE_API_TOKEN = "rMedVr2wX8qjKfhzo8JKtKiR3f2PC7kc";
+        async function uploadToGoFile(file) {
+            if (!file) throw new Error('No file selected.');
+            const form = new FormData();
+            form.append('file', file, file.name);
+            const response = await fetch('https://upload.gofile.io/uploadfile', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${GOFILE_API_TOKEN}` },
+                body: form
+            });
+            let json = {}; try { json = await response.json(); } catch (_) {}
+            if (!response.ok || json.status !== 'ok') throw new Error(json.message || `GoFile upload failed (${response.status})`);
+            const d = json.data || {};
+            return { name:file.name, size:file.size, type:file.type || 'application/octet-stream', fileId:d.fileId || d.id || '', downloadPage:d.downloadPage || d.downloadPageUrl || '', directLink:d.directLink || d.link || '', url:d.directLink || d.downloadPage || '' };
+        }
+        function formatBytes(bytes){ const n=Number(bytes)||0; if(n<1024)return `${n} B`; if(n<1048576)return `${(n/1024).toFixed(1)} KB`; if(n<1073741824)return `${(n/1048576).toFixed(1)} MB`; return `${(n/1073741824).toFixed(2)} GB`; }
+
         async function releasePigeon() {
-            if (!currentUser || currentUser.isAnonymous || !currentUser.email) {
-                alert('Please sign in with your Gmail/Google account first.');
-                return;
-            }
+            if (!currentUser || currentUser.isAnonymous || !currentUser.email) { alert('Please sign in with your Gmail/Google account first.'); return; }
+            if (!selectedRecipientObj?.uid) { alert('Please select a recipient from the member directory.'); return; }
+            if (selectedRecipientObj.uid === currentUser.uid) { alert('You cannot send a pigeon to yourself.'); return; }
+            const content = document.getElementById('inputLetterContent')?.value.trim();
+            if (!content && !selectedFileBlobs.length) { alert('Please write a message or attach at least one file before sending.'); return; }
+            if (!selectedRecipientObj.coords) { alert('This member has no saved location yet. Ask them to sign in and allow location access first.'); return; }
 
-            if (!selectedRecipientObj || !selectedRecipientObj.uid) {
-                alert('Please select a recipient from the member directory.');
-                return;
-            }
-            if (selectedRecipientObj.uid === currentUser.uid) {
-                alert('You cannot send a pigeon to yourself.');
-                return;
-            }
-
-            const content = document.getElementById('inputLetterContent').value.trim();
-            if (!content) {
-                alert('Please write your message before releasing the pigeon.');
-                return;
-            }
-            if (!selectedRecipientObj.coords) {
-                alert('This member has no saved location yet. Ask them to sign in and allow location access first.');
-                return;
-            }
-
-            const releaseBtn = document.getElementById('releaseBtn');
-            releaseBtn.disabled = true;
-            releaseBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparing Dispatch...';
-
+            const releaseBtn=document.getElementById('releaseBtn');
+            const subject=(document.getElementById('inputLetterSubject')?.value||'').trim();
+            const hideSender=!!document.getElementById('hideSenderName')?.checked;
+            releaseBtn.disabled=true; releaseBtn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i><span>Sending...</span>';
             try {
-                let imageUrl = '';
-                if (selectedFileBlob) {
-                    releaseBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up fa-bounce"></i> Uploading Attached Image...';
-                    imageUrl = await uploadToImgBB(selectedFileBlob);
+                const imageUrls=[]; const fileAttachments=[];
+                for(let i=0;i<selectedFileBlobs.length;i++){
+                    const file=selectedFileBlobs[i];
+                    releaseBtn.innerHTML=`<i class="fa-solid fa-cloud-arrow-up fa-bounce"></i><span>Uploading ${i+1}/${selectedFileBlobs.length}...</span>`;
+                    if(file.type && file.type.startsWith('image/')) imageUrls.push(await uploadToImgBB(file));
+                    else fileAttachments.push(await uploadToGoFile(file));
                 }
 
-                // Sender coordinates can be entered manually or populated from GPS; the current fields are used as origin.
-                const sLat = parseFloat(document.getElementById('senderLat').value);
-                const sLng = parseFloat(document.getElementById('senderLng').value);
-                const rLat = Number(selectedRecipientObj.coords.lat);
-                const rLng = Number(selectedRecipientObj.coords.lng);
+                const sLat=parseFloat(document.getElementById('senderLat').value), sLng=parseFloat(document.getElementById('senderLng').value);
+                const rLat=Number(selectedRecipientObj.coords.lat), rLng=Number(selectedRecipientObj.coords.lng);
+                if(![sLat,sLng,rLat,rLng].every(Number.isFinite)) throw new Error('Your location is not available. Please allow location access and try again.');
 
-                if (![sLat, sLng, rLat, rLng].every(Number.isFinite)) throw new Error('Invalid sender/receiver coordinates.');
-
-                document.getElementById('receiverLat').value = rLat.toFixed(6);
-                document.getElementById('receiverLng').value = rLng.toFixed(6);
-
-                const distanceKm = haversineDistance({ lat: sLat, lng: sLng }, { lat: rLat, lng: rLng });
-                const pigeonSpeedKmh = FIXED_PIGEON_SPEED_KMH;
-                const flightDurationSeconds = Math.max(5, (distanceKm / pigeonSpeedKmh) * 3600);
-                const now = Date.now();
-
-                const pigeonPayload = {
-                    senderUid: currentUser.uid,
-                    receiverUid: selectedRecipientObj.uid,
-                    senderName: currentUser.displayName || currentUser.email.split('@')[0],
-                    receiverName: selectedRecipientObj.displayName || selectedRecipientObj.email?.split('@')[0] || 'Member',
-                    senderCoords: { lat: sLat, lng: sLng },
-                    receiverCoords: { lat: rLat, lng: rLng },
-                    distanceKm,
-                    pigeonSpeedKmh,
-                    flightDurationSeconds,
-                    dispatchTime: now,
-                    estimatedArrival: now + (flightDurationSeconds * 1000),
-                    status: 'in_flight'
+                const distanceKm=haversineDistance({lat:sLat,lng:sLng},{lat:rLat,lng:rLng});
+                const pigeonSpeedKmh=pigeonSpeedSetting;
+                const flightDurationSeconds=Math.max(5,(distanceKm/pigeonSpeedKmh)*3600);
+                const now=Date.now();
+                const visibleSenderName=hideSender?'Hidden Sender':(currentUser.displayName||currentUser.email.split('@')[0]);
+                const pigeonPayload={
+                    senderUid:currentUser.uid, receiverUid:selectedRecipientObj.uid,
+                    senderName:visibleSenderName,
+                    receiverName:selectedRecipientObj.displayName||selectedRecipientObj.email?.split('@')[0]||'Member',
+                    senderCoords:{lat:sLat,lng:sLng}, receiverCoords:{lat:rLat,lng:rLng},
+                    distanceKm,pigeonSpeedKmh,flightDurationSeconds,dispatchTime:now,
+                    estimatedArrival:now+(flightDurationSeconds*1000),status:'in_flight'
                 };
-
-                releaseBtn.innerHTML = '<i class="fa-solid fa-dove fa-bounce"></i> Releasing Pigeon...';
-                const docId = await window.dbSavePigeon(pigeonPayload, { content, imageUrl });
-
-                playSound('release');
-                document.getElementById('inputLetterContent').value = '';
-                clearImageAttachment();
-                selectedRecipientObj = null;
-                renderUsersList(allUsersList);
-                releaseBtn.disabled = false;
-                releaseBtn.innerHTML = '<i class="fa-solid fa-dove text-2xl"></i> Release Pigeon Into Sky';
-                activePigeonId = docId;
-                switchTab('map');
-            } catch (err) {
-                console.error('Error dispatching pigeon:', err);
-                alert('Message could not be sent. ' + (err.message || 'Please check Firebase connection and Firestore Rules.'));
-                releaseBtn.disabled = false;
-                releaseBtn.innerHTML = '<i class="fa-solid fa-dove text-2xl"></i> Release Pigeon Into Sky';
+                releaseBtn.innerHTML='<i class="fa-solid fa-dove fa-bounce"></i><span>Releasing Pigeon...</span>';
+                const docId=await window.dbSavePigeon(pigeonPayload,{content,imageUrl:imageUrls[0]||'',imageUrls,fileAttachments,subject,senderName:visibleSenderName});
+                playSound('release'); await logActivity('pigeon','Pigeon letter sent',`Your letter was released to ${selectedRecipientObj.displayName||selectedRecipientObj.email||'a member'}.`,{receiverUid:selectedRecipientObj.uid,pigeonId:docId});
+                document.getElementById('inputLetterContent').value='';
+                document.getElementById('inputLetterSubject').value='';
+                document.getElementById('hideSenderName').checked=false;
+                clearImageAttachment(); selectedRecipientObj=null; renderSelectedRecipient(); renderUsersList(allUsersList);
+                updateSenderPreview();
+                releaseBtn.disabled=false; releaseBtn.innerHTML='<i class="fa-solid fa-paper-plane"></i><span>Send Letter</span>';
+                activePigeonId=docId; switchTab('map');
+            } catch(err) {
+                console.error('Error dispatching pigeon:',err);
+                alert('Message could not be sent. '+(err.message||'Please check Firebase connection and Firestore Rules.'));
+                releaseBtn.disabled=false; releaseBtn.innerHTML='<i class="fa-solid fa-paper-plane"></i><span>Send Letter</span>';
             }
         }
+
 
         function createMapboxMarkerElement(html, width, height, className='mapbox-custom-marker') {
             const el = document.createElement('div');
@@ -1733,7 +1880,7 @@
 
         function getAnimatedPigeonState(pigeon, now = Date.now()) {
             if (!pigeon) return null;
-            const totalDurationSec = Math.max(1, (Number(pigeon.distanceKm) || 0) / FIXED_PIGEON_SPEED_KMH * 3600);
+            const totalDurationSec = Math.max(1, (Number(pigeon.distanceKm) || 0) / (Number(pigeon.pigeonSpeedKmh) || pigeonSpeedSetting) * 3600);
             const elapsedSec = Math.max(0, (now - Number(pigeon.dispatchTime || now)) / 1000);
             const progressFraction = Math.min(1, elapsedSec / totalDurationSec);
             const roadPoint = getRoadPointAtFraction(progressFraction);
@@ -2017,6 +2164,13 @@
                 document.getElementById('modalSender').innerText = pigeon.senderName || 'Unknown sender';
                 document.getElementById('modalReceiver').innerText = pigeon.receiverName || 'Unknown receiver';
                 document.getElementById('modalBody').innerText = letter.content || '';
+                const subjectRow=document.getElementById('modalSubjectRow'), subjectEl=document.getElementById('modalSubject');
+                if(subjectEl) subjectEl.innerText=letter.subject||'';
+                if(subjectRow) subjectRow.classList.toggle('hidden',!(letter.subject||''));
+                const modalGrid=document.getElementById('modalImagesGrid');
+                const imageList=Array.isArray(letter.imageUrls)&&letter.imageUrls.length ? letter.imageUrls : (letter.imageUrl?[letter.imageUrl]:[]);
+                if(modalGrid) modalGrid.innerHTML=imageList.map(url=>`<img src="${escapeHtmlSafe(url)}" alt="Attachment" class="w-full h-40 object-cover rounded-lg border border-parchment-300" loading="lazy">`).join('');
+                const modalFiles=Array.isArray(letter.fileAttachments)?letter.fileAttachments:[]; const modalFileBox=document.getElementById('modalFilesGrid'); if(modalFileBox) modalFileBox.innerHTML=modalFiles.map(f=>`<a href="${escapeHtmlSafe(f.downloadPage||f.directLink||f.url||'#')}" target="_blank" rel="noopener" class="letter-file-card"><i class="fa-solid fa-file-arrow-down"></i><span><strong>${escapeHtmlSafe(f.name||'File')}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))} • ${escapeHtmlSafe(f.type||'')}</small></span></a>`).join('');
                 document.getElementById('modalDistance').innerText = `${Number(pigeon.distanceKm || 0).toFixed(1)} km`;
                 document.getElementById('modalSpeed').innerText = `${pigeon.pigeonSpeedKmh} km/h`;
                 document.getElementById('modalDispatchTime').innerText =
@@ -2024,11 +2178,11 @@
 
                 const imgContainer = document.getElementById('modalImageContainer');
                 const imgEl = document.getElementById('modalImage');
-                if (letter.imageUrl) {
-                    imgEl.src = letter.imageUrl;
+                if (imageList.length) {
+                    if(imgEl) imgEl.src = imageList[0];
                     imgContainer.classList.remove('hidden');
                 } else {
-                    imgEl.src = '';
+                    if(imgEl) imgEl.src = '';
                     imgContainer.classList.add('hidden');
                 }
 
@@ -2123,7 +2277,7 @@
                 const senderCoords = original.receiverCoords;
                 const receiverCoords = original.senderCoords;
                 const distanceKm = haversineDistance(senderCoords, receiverCoords);
-                const speedKmh = FIXED_PIGEON_SPEED_KMH;
+                const speedKmh = pigeonSpeedSetting;
                 const flightDurationSeconds = Math.max(
                     5,
                     (distanceKm / speedKmh) * 3600
@@ -2275,7 +2429,7 @@
                 if (!selectedFriendObj) {
                     setFriendFilter(activeFriendFilter || 'friends');
                 }
-                renderFriendsUI();
+                renderFriendsUI(); renderChatRooms();
             }
         }
 
