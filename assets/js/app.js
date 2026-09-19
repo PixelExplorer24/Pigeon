@@ -976,7 +976,7 @@ window.filterUsers = function() {
         };
         window.handleChatImageSelect=function(e){selectedChatImages=[...selectedChatImages,...Array.from(e.target.files||[]).filter(f=>f.type.startsWith('image/'))].slice(0,6);e.target.value='';renderChatImagePreview();};
         window.removeChatImage=function(i){selectedChatImages.splice(i,1);renderChatImagePreview();};
-        window.handleChatFileSelect=function(e){selectedChatFiles=[...selectedChatFiles,...Array.from(e.target.files||[])].slice(0,10);e.target.value='';renderChatFilePreview();};
+        window.handleChatFileSelect=function(e){const files=Array.from(e.target.files||[]).filter(f=>!f.type.startsWith('image/'));selectedChatFiles=[...selectedChatFiles,...files].slice(0,10);e.target.value='';renderChatFilePreview();};
         window.removeChatFile=function(i){selectedChatFiles.splice(i,1);renderChatFilePreview();};
         function renderChatFilePreview(){const box=document.getElementById('chatImagePreview');if(!box)return;const files=selectedChatFiles; const imgs=selectedChatImages; box.classList.toggle('hidden',!(files.length||imgs.length)); box.innerHTML=[...imgs.map((f,i)=>`<div class="chat-preview-chip"><i class="fa-solid fa-image"></i><span>${escapeHtmlSafe(f.name)}</span><button type="button" onclick="removeChatImage(${i})">×</button></div>`),...files.map((f,i)=>`<div class="chat-preview-chip"><i class="fa-solid fa-file"></i><span>${escapeHtmlSafe(f.name)}</span><button type="button" onclick="removeChatFile(${i})">×</button></div>`)].join('');}
         function renderChatImagePreview(){const box=document.getElementById('chatImagePreview');if(!box)return;box.classList.toggle('hidden',!selectedChatImages.length);box.innerHTML=selectedChatImages.map((f,i)=>{const u=URL.createObjectURL(f);return `<div><img src="${u}" alt=""><button type="button" onclick="removeChatImage(${i})"><i class="fa-solid fa-xmark"></i></button></div>`}).join('');}
@@ -2430,6 +2430,13 @@ let selectedFileBlobs = [];
                     setFriendFilter(activeFriendFilter || 'friends');
                 }
                 renderFriendsUI(); renderChatRooms();
+            }
+
+            if (tabName === 'nest' && currentUser && !unsubscribePigeons) {
+                listenToPigeons();
+            }
+            if (tabName === 'nest') {
+                renderNestInbox(window.pigeonsList || []);
             }
         }
 
