@@ -419,7 +419,7 @@
                         <div id="friendMessageList" class="chat-messages flex-1 min-h-[350px] max-h-[48vh] overflow-y-auto space-y-2 p-3 hidden"></div>
                         <form id="friendComposer" onsubmit="sendDirectMessage(event)" class="chat-composer hidden p-2 gap-2">
                             <input id="friendMessageInput" type="text" maxlength="2000" autocomplete="off" placeholder="Write a private message..." class="flex-1 px-3 py-2.5 rounded-xl border border-parchment-400 bg-white text-sm outline-none focus:ring-2 focus:ring-wax-gold">
-                            <button class="w-11 rounded-xl bg-wax-red text-white font-bold" type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+                            <button class="chat-send-button" type="submit" aria-label="Send message"><i class="fa-solid fa-paper-plane"></i><span>Send</span></button>
                         </form>
                     </section>
                 </div>
