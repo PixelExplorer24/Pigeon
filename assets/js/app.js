@@ -863,6 +863,10 @@ window.filterUsers = function() {
             if(!friend) return;
             selectedFriendObj=friend;
             const layout=document.getElementById('friendLayout'); if(layout) layout.classList.add('chat-open');
+            /* On mobile the conversation is a true fullscreen sub-page. Hide the bottom nav so the composer is never covered. */
+            if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) {
+                document.getElementById('mobileBottomNav')?.classList.add('mobile-nav-hidden');
+            }
             document.getElementById('friendChatName').textContent=friend.displayName||friend.email||'Friend';
             document.getElementById('friendChatAvatar').src=friend.photoURL||'https://placehold.co/100x100/3d2617/fdfbf7?text=?';
             const isFriend=allFriendsList.some(f=>f.uid===uid);
