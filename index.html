@@ -561,7 +561,7 @@
     
 
     <!-- Mobile App Bottom Navigation -->
-    <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Main navigation">
+    <nav class="mobile-bottom-nav nav-auth-hidden" id="mobileBottomNav" aria-label="Main navigation">
         <button class="mobile-nav-btn active" id="mobileNav-dispatch" onclick="switchTab('dispatch')">
             <i class="fa-solid fa-feather-pointed"></i><span>Send</span>
         </button>
@@ -585,8 +585,8 @@ window.addEventListener('DOMContentLoaded', function(){
   if(nav){ nav.querySelectorAll('.mobile-nav-btn').forEach(btn=>{btn.style.visibility='visible'; btn.style.opacity='1';}); }
 });
 </script>
-<script src="./assets/js/app.js?v=10" defer></script>
-    <script src="./assets/js/lazy-mapbox.js?v=10" defer></script>
+<script src="./assets/js/app.js?v=11" defer></script>
+    <script src="./assets/js/lazy-mapbox.js?v=11" defer></script>
     <script>if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));</script>
 </body>
 </html>
