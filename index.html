@@ -290,6 +290,11 @@
             <div class="relative rounded-xl overflow-hidden border-4 border-parchment-400 shadow-2xl h-[520px] w-full bg-parchment-300">
                 <div id="leafletMap" class="w-full h-full"></div>
 
+                <button id="mapFollowBtn" type="button" onclick="toggleMapFollowMode()" aria-pressed="false" title="Follow the pigeon automatically" class="map-follow-btn">
+                    <i class="fa-solid fa-location-arrow"></i>
+                    <span class="follow-label">Follow Pigeon</span>
+                </button>
+
                 <!-- Floating Live Pigeon Telemetry Overlay -->
                 <div id="mapTelemetryOverlay" class="absolute bottom-5 left-5 right-5 sm:right-auto sm:max-w-md bg-parchment-900/95 text-parchment-100 backdrop-blur-md p-4 rounded-xl border-2 border-wax-gold shadow-2xl z-[1000] space-y-2">
                     <div class="flex justify-between items-center border-b border-parchment-700 pb-2">
