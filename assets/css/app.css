@@ -230,18 +230,3 @@ body.dark .messages .empty, body.dark .messages .empty-state{color:var(--muted)}
 body.dark .chat-panel .chat-title span{color:#a9b7cc}
 body.dark .chat-panel .chat-title b{color:var(--text)}
 body.dark .chat-panel .messages{background:var(--bg)}
-
-/* v15: unread chat detection + full image lightbox */
-.chat-item.unread-chat{border-color:#93c5fd;background:linear-gradient(90deg,#eff6ff,var(--surface));box-shadow:0 4px 16px rgba(37,99,235,.10)}
-.chat-item.unread-chat .item-copy strong{font-weight:900;color:var(--primary)}
-.chat-item.unread-chat .item-copy small{color:var(--text);font-weight:650}
-.unread-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--primary);color:#fff;display:inline-grid;place-items:center;font-size:9px;line-height:1;flex:0 0 auto}
-body.dark .chat-item.unread-chat{background:linear-gradient(90deg,#10264a,var(--surface));border-color:#2563eb}
-body.dark .chat-item.unread-chat .item-copy strong{color:#93c5fd}
-body.dark .chat-item.unread-chat .item-copy small{color:#dbeafe}
-.lightbox{touch-action:none;overflow:hidden}
-.lightbox #lightboxStage{width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
-.lightbox #lightboxImg{max-width:none;max-height:none;width:auto;height:auto;object-fit:contain;border-radius:12px;transform-origin:center center;transition:transform .12s ease;user-select:none;-webkit-user-drag:none;touch-action:none}
-.lightbox-controls{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:2;display:flex;gap:7px;background:#0008;padding:6px;border-radius:14px;backdrop-filter:blur(8px)}
-.lightbox-controls button{width:40px;height:40px;border-radius:10px;background:#fff;color:#111;display:grid;place-items:center}
-.lightbox>button#closeLightbox{z-index:3}
