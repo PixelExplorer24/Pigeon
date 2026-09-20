@@ -2,10 +2,10 @@ const firebaseConfig={apiKey:"AIzaSyDOU1dpWdqTZjGMjQjX_V3Iv6JMvcIoa2I",authDomai
 firebase.initializeApp(firebaseConfig);
 const auth=firebase.auth(),db=firebase.firestore(),APP="pigeon-7a637";
 const ROOT=()=>db.collection("artifacts").doc(APP).collection("public").doc("data");
-const USERS=()=>ROOT().collection("users"),FRIENDS=()=>ROOT().collection("friends"),REQUESTS=()=>ROOT().collection("friendRequests"),MESSAGES=()=>ROOT().collection("messages");
+const USERS=()=>ROOT().collection("users"),FRIENDS=()=>ROOT().collection("friends"),REQUESTS=()=>ROOT().collection("friendRequests"),MESSAGES=()=>ROOT().collection("messages"),GROUPS=()=>ROOT().collection("groups");
 const IMAGE_UPLOAD_KEY="1abc9f66636c45ace1d0952e080d153d";
 const FILE_UPLOAD_ENDPOINT="https://upload.gofile.io/uploadfile";
-let me=null,profile=null,users=[],friends=[],requests=[],sentRequests=[],activeFriend=null,chatUnsubs=[],listUnsubs=[],typingUnsub=null,typingTimer=null,attachedImages=[],attachedFiles=[],messageMap=new Map(),peopleTab="friends";
+let me=null,profile=null,users=[],friends=[],requests=[],sentRequests=[],groups=[],activeFriend=null,chatUnsubs=[],listUnsubs=[],typingUnsub=null,typingTimer=null,attachedImages=[],attachedFiles=[],messageMap=new Map(),peopleTab="friends";
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 const avatar=u=>u?.photoURL||"https://placehold.co/120x120/e5e7eb/64748b?text=U";
 const pair=(a,b)=>[a,b].sort().join("__");
@@ -27,26 +27,114 @@ async function ensureUser(){const ref=USERS().doc(me.uid),snap=await ref.get();c
 function heartbeat(){if(!me)return;const ping=()=>USERS().doc(me.uid).set({online:true,lastSeen:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});ping();clearInterval(heartbeat.t);heartbeat.t=setInterval(ping,30000)}
 window.addEventListener("beforeunload",()=>{if(me)USERS().doc(me.uid).set({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{})});
 function stopListeners(){listUnsubs.forEach(u=>u&&u());listUnsubs=[];closeChat()}
-function startListeners(){stopListeners();listUnsubs.push(USERS().onSnapshot(s=>{users=s.docs.map(d=>({uid:d.id,...d.data()})).filter(x=>x.uid!==me.uid);renderPeople();renderChats()}));listUnsubs.push(FRIENDS().where("ownerUid","==",me.uid).onSnapshot(s=>{friends=s.docs.map(d=>({id:d.id,...d.data()}));renderPeople();renderChats();updateStats()}));listUnsubs.push(REQUESTS().where("receiverUid","==",me.uid).onSnapshot(s=>{requests=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");updateRequestBadge();renderPeople()}));listUnsubs.push(REQUESTS().where("senderUid","==",me.uid).onSnapshot(s=>{sentRequests=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");renderPeople()}));listUnsubs.push(MESSAGES().where("senderUid","==",me.uid).onSnapshot(()=>renderChats()));listUnsubs.push(MESSAGES().where("receiverUid","==",me.uid).onSnapshot(()=>renderChats()))}
-async function getLatestMessages(){const[a,b]=await Promise.all([MESSAGES().where("senderUid","==",me.uid).get(),MESSAGES().where("receiverUid","==",me.uid).get()]);messageMap.clear();[...a.docs,...b.docs].forEach(d=>messageMap.set(d.id,{id:d.id,...d.data()}));return[...messageMap.values()].sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0))}
-async function renderChats(){if(!me)return;const q=($("chatSearch")?.value||"").trim().toLowerCase(),all=await getLatestMessages(),by=new Map();for(const m of all){const uid=m.senderUid===me.uid?m.receiverUid:m.senderUid;if(!by.has(uid))by.set(uid,m)}let rows=[...by.entries()].map(([uid,m])=>({uid,m,u:users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid)||{uid,displayName:"User"}}));if(q)rows=rows.filter(r=>(r.u.displayName||"").toLowerCase().includes(q)||(r.u.email||"").toLowerCase().includes(q)||(r.m.text||"").toLowerCase().includes(q));const box=$("chatList");box.innerHTML=rows.length?rows.map(r=>`<button class="chat-item" onclick="openChat('${esc(r.uid)}')"><img class="avatar" src="${esc(avatar(r.u))}"><span class="item-copy"><strong>${esc(r.u.displayName||r.u.email||"User")}</strong><small>${esc(r.m.text||((r.m.imageUrls||[]).length?"📷 Image":r.m.fileName?"📎 "+r.m.fileName:"Message"))}</small></span><time class="item-meta">${time(r.m.createdAt)}</time></button>`).join(""):`<div class="empty"><i class="fa-regular fa-comments" style="font-size:28px;display:block;margin-bottom:10px"></i>কোনো conversation নেই। People থেকে একজনকে বেছে নিয়ে chat শুরু করুন।</div>`}
+function startListeners(){
+  stopListeners();
+  listUnsubs.push(USERS().onSnapshot(s=>{users=s.docs.map(d=>({uid:d.id,...d.data()})).filter(x=>x.uid!==me.uid);renderPeople();renderGroups();renderChats()}));
+  listUnsubs.push(FRIENDS().where("ownerUid","==",me.uid).onSnapshot(s=>{friends=s.docs.map(d=>({id:d.id,...d.data()}));renderPeople();renderGroups();renderChats();updateStats()}));
+  listUnsubs.push(REQUESTS().where("receiverUid","==",me.uid).onSnapshot(s=>{requests=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");updateRequestBadge();renderPeople()}));
+  listUnsubs.push(REQUESTS().where("senderUid","==",me.uid).onSnapshot(s=>{sentRequests=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");renderPeople()}));
+  listUnsubs.push(GROUPS().where("memberUids","array-contains",me.uid).onSnapshot(s=>{groups=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));renderGroups();renderChats()}));
+  listUnsubs.push(MESSAGES().where("senderUid","==",me.uid).onSnapshot(()=>renderChats()));
+  listUnsubs.push(MESSAGES().where("receiverUid","==",me.uid).onSnapshot(()=>renderChats()));
+  listUnsubs.push(MESSAGES().where("groupMemberUids","array-contains",me.uid).onSnapshot(()=>renderChats(),()=>{}));
+}
+async function getLatestMessages(){
+  const [a,b]=await Promise.all([
+    MESSAGES().where("senderUid","==",me.uid).get(),
+    MESSAGES().where("receiverUid","==",me.uid).get()
+  ]);
+  messageMap.clear();
+  [...a.docs,...b.docs].forEach(d=>messageMap.set(d.id,{id:d.id,...d.data()}));
+  return [...messageMap.values()].sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
+}
+async function getLatestGroupMessages(){
+  if(!groups.length)return new Map();
+  const pairs=await Promise.all(groups.map(async g=>{
+    try{
+      const snap=await MESSAGES().where("groupId","==",g.id).get();
+      let latest=null;
+      snap.forEach(d=>{const m={id:d.id,...d.data()};if(!latest||(m.createdAt?.toMillis?.()||0)>(latest.createdAt?.toMillis?.()||0))latest=m});
+      return [g.id,latest];
+    }catch(e){console.warn("group latest",g.id,e);return [g.id,null]}
+  }));
+  return new Map(pairs);
+}
+async function renderChats(){
+  if(!me)return;
+  const q=($("chatSearch")?.value||"").trim().toLowerCase();
+  const all=await getLatestMessages();
+  const latestGroups=await getLatestGroupMessages();
+  const by=new Map();
+  for(const m of all){
+    const uid=m.senderUid===me.uid?m.receiverUid:m.senderUid;
+    if(uid&&!by.has(uid))by.set(uid,m);
+  }
+  let rows=[...by.entries()].map(([uid,m])=>({uid,m,u:users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid)||{uid,displayName:"User"}}));
+  if(q)rows=rows.filter(r=>(r.u.displayName||"").toLowerCase().includes(q)||(r.u.email||"").toLowerCase().includes(q)||(r.m.text||"").toLowerCase().includes(q));
+  const box=$("chatList");
+  const groupRows=groups
+    .filter(g=>!q||(g.name||"").toLowerCase().includes(q))
+    .map(g=>{
+      const m=latestGroups.get(g.id);
+      const preview=m?.text||((m?.imageUrls||[]).length?"📷 ছবি":m?.fileName?"📎 "+m.fileName:"নতুন গ্রুপ");
+      return `<button class="chat-item" onclick="openGroupChat('${esc(g.id)}')"><span class="group-chat-icon"><i class="fa-solid fa-user-group"></i></span><span class="item-copy"><strong>${esc(g.name||"Unnamed group")}</strong><small>${esc(preview)}</small></span><time class="item-meta">${m?time(m.createdAt):"Group"}</time></button>`;
+    }).join("");
+  const personal=rows.map(r=>`<button class="chat-item" onclick="openChat('${esc(r.uid)}')"><img class="avatar" src="${esc(avatar(r.u))}"><span class="item-copy"><strong>${esc(r.u.displayName||r.u.email||"User")}</strong><small>${esc(r.m.text||((r.m.imageUrls||[]).length?"📷 Image":r.m.fileName?"📎 "+r.m.fileName:"Message"))}</small></span><time class="item-meta">${time(r.m.createdAt)}</time></button>`).join("");
+  const content=groupRows+personal;
+  box.innerHTML=content||`<div class="empty"><i class="fa-regular fa-comments" style="font-size:28px;display:block;margin-bottom:10px"></i>কোনো conversation নেই। People থেকে একজনকে বেছে নিয়ে chat শুরু করুন।</div>`;
+}
+function groupMemberUsers(g){return (g.memberUids||[]).map(uid=>uid===me?.uid?profile:users.find(u=>u.uid===uid)||friends.find(f=>f.friendUid===uid)).filter(Boolean)}
+function renderGroups(){const box=$("groupList");if(!box)return;const q=($("groupSearch")?.value||"").trim().toLowerCase();const rows=groups.filter(g=>!q||(g.name||"").toLowerCase().includes(q));box.innerHTML=rows.length?rows.map(g=>{const ms=groupMemberUsers(g).slice(0,4);return`<button class="chat-item" onclick="openGroupChat('${esc(g.id)}')"><span class="group-avatar-mini">${ms.map(u=>`<img src="${esc(avatar(u))}" alt="">`).join("")}</span><span class="item-copy"><strong>${esc(g.name||"Unnamed group")}</strong><small>${(g.memberUids||[]).length} জন সদস্য · ${esc((g.memberUids||[]).includes(me.uid)?"আপনি সদস্য":"")}</small></span><span class="item-meta"><i class="fa-solid fa-chevron-right"></i></span></button>`}).join(""):`<div class="empty"><i class="fa-solid fa-user-group" style="font-size:28px;display:block;margin-bottom:10px"></i>এখনও কোনো গ্রুপ নেই।<br>নতুন গ্রুপ তৈরি করে আপনার বন্ধুদের যোগ করুন।</div>`}
+function renderGroupPicker(){const box=$("groupFriendPicker"),count=$("groupMemberCount");if(!box)return;const fs=friends.map(f=>users.find(u=>u.uid===f.friendUid)||{uid:f.friendUid,displayName:"User",email:""});if(!fs.length){box.innerHTML='<div class="empty" style="padding:25px 10px;background:transparent;border:0">আগে অন্তত একজন বন্ধুকে Add করুন, তারপর গ্রুপ তৈরি করতে পারবেন।</div>';$("saveGroupBtn").disabled=true;return}box.innerHTML=fs.map(u=>`<label class="group-friend-row"><input type="checkbox" value="${esc(u.uid)}"><img src="${esc(avatar(u))}" alt=""><span class="item-copy"><strong>${esc(u.displayName||"User")}</strong><small>${esc(u.email||"")}</small></span></label>`).join("");const update=()=>{const n=box.querySelectorAll("input:checked").length;count.textContent=`${n} জন নির্বাচিত`;$("saveGroupBtn").disabled=n<1};box.querySelectorAll("input").forEach(x=>x.onchange=update);update()}
+function showGroupModal(){if(!me)return;$("groupNameInput").value="";$("groupModal").classList.remove("hidden");renderGroupPicker();setTimeout(()=>$("groupNameInput").focus(),50)}
+async function createGroup(){const name=$("groupNameInput").value.trim();const selected=[...document.querySelectorAll("#groupFriendPicker input:checked")].map(x=>x.value);if(!name)return toast("গ্রুপের নাম দিন");if(!selected.length)return toast("অন্তত একজন বন্ধুকে নির্বাচন করুন");if(!selected.every(isFriend))return toast("শুধু আপনার বন্ধুদেরই গ্রুপে যোগ করা যাবে");const btn=$("saveGroupBtn");btn.disabled=true;try{const memberUids=[me.uid,...selected.filter(x=>x!==me.uid)];const ref=GROUPS().doc();await ref.set({name,ownerUid:me.uid,memberUids,createdAt:firebase.firestore.FieldValue.serverTimestamp()});$("groupModal").classList.add("hidden");toast("গ্রুপ তৈরি হয়েছে");showView("groupsView");}catch(e){console.error("createGroup",e);toast(e?.code==="permission-denied"?"গ্রুপ তৈরি করার permission নেই। Firestore rules পরীক্ষা করুন":"গ্রুপ তৈরি করা যায়নি")}finally{btn.disabled=false}}
 function renderPeople(){const q=($("peopleSearch")?.value||"").trim().toLowerCase();let rows=peopleTab==="friends"?friends.map(f=>users.find(u=>u.uid===f.friendUid)||{uid:f.friendUid,displayName:"User"}):peopleTab==="requests"?requests.map(r=>users.find(u=>u.uid===r.senderUid)||{uid:r.senderUid,displayName:"User"}):users;if(q)rows=rows.filter(u=>(u.displayName||"").toLowerCase().includes(q)||(u.email||"").toLowerCase().includes(q));const box=$("peopleList");box.innerHTML=rows.length?rows.map(u=>{const pending=requests.find(r=>r.senderUid===u.uid),sent=sentRequests.find(r=>r.receiverUid===u.uid),f=isFriend(u.uid);let actions=f?`<button class="small-btn primary" onclick="openChat('${u.uid}')">Message</button>`:(pending||sent)?`<button class="small-btn" disabled>Pending</button>`:`<button class="small-btn primary" onclick="sendRequest('${u.uid}')">Add friend</button>`;if(peopleTab==="requests"&&pending)actions=`<button class="small-btn primary" onclick="acceptRequest('${pending.id}','${u.uid}')">Accept</button><button class="small-btn danger" onclick="rejectRequest('${pending.id}')">Decline</button>`;return`<div class="person-item"><img class="avatar" src="${esc(avatar(u))}"><div class="item-copy" onclick="openUser('${u.uid}')"><strong>${esc(u.displayName||"User")}</strong><small>${esc(u.email||"")}</small></div><div class="person-actions">${actions}</div></div>`}).join(""):`<div class="empty">কোনো user পাওয়া যায়নি।</div>`}
 async function sendRequest(uid){if(!me||uid===me.uid||isFriend(uid)||sentRequests.some(r=>r.receiverUid===uid))return toast("Request already sent");try{await REQUESTS().doc(pair(me.uid,uid)).set({senderUid:me.uid,receiverUid:uid,pairId:pair(me.uid,uid),status:"pending",createdAt:firebase.firestore.FieldValue.serverTimestamp()});toast("Friend request sent")}catch(e){console.error(e);toast("Request পাঠানো যায়নি")}}
-async function acceptRequest(id,uid){try{const now=firebase.firestore.FieldValue.serverTimestamp(),batch=db.batch(),p=pair(me.uid,uid);batch.update(REQUESTS().doc(id),{status:"accepted",respondedAt:now});batch.set(FRIENDS().doc(p+"__"+me.uid),{pairId:p,ownerUid:me.uid,friendUid:uid,createdAt:now},{merge:true});batch.set(FRIENDS().doc(p+"__"+uid),{pairId:p,ownerUid:uid,friendUid:me.uid,createdAt:now},{merge:true});await batch.commit();toast("Friend added")}catch(e){console.error(e);toast("Accept করা যায়নি")}}
-async function rejectRequest(id){try{await REQUESTS().doc(id).set({status:"rejected",respondedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});toast("Request declined")}catch(e){toast("কাজটি করা যায়নি")}}
+async function acceptRequest(id,uid){
+  if(!me||!id||!uid)return toast("Request পাওয়া যায়নি");
+  const reqRef=REQUESTS().doc(id);
+  try{
+    const reqSnap=await reqRef.get();
+    if(!reqSnap.exists)throw new Error("REQUEST_NOT_FOUND");
+    const req=reqSnap.data()||{};
+    if(req.receiverUid!==me.uid||req.senderUid!==uid)throw new Error("REQUEST_INVALID");
+    if(req.status!=="pending")throw new Error("REQUEST_ALREADY_HANDLED");
+    const now=firebase.firestore.Timestamp.now();
+    const p=pair(me.uid,uid);
+    const batch=db.batch();
+    batch.set(FRIENDS().doc(p+"__"+me.uid),{pairId:p,ownerUid:me.uid,friendUid:uid,createdAt:now},{merge:true});
+    batch.set(FRIENDS().doc(p+"__"+uid),{pairId:p,ownerUid:uid,friendUid:me.uid,createdAt:now},{merge:true});
+    batch.set(reqRef,{status:"accepted",respondedAt:now},{merge:true});
+    await batch.commit();
+    toast("Friend added");
+    peopleTab="friends";
+    document.querySelectorAll("[data-people-tab]").forEach(x=>x.classList.toggle("active",x.dataset.peopleTab==="friends"));
+    renderPeople();
+  }catch(e){
+    console.error("acceptRequest",e);
+    const msg=e?.code==="permission-denied"?"Friend accept করার permission নেই। Firestore rules পরীক্ষা করুন":e?.message==="REQUEST_NOT_FOUND"?"Request আর পাওয়া যাচ্ছে না":e?.message==="REQUEST_INVALID"?"এই request আপনার জন্য নয়":e?.message==="REQUEST_ALREADY_HANDLED"?"এই request আগে থেকেই সম্পন্ন হয়েছে":"Friend request accept করা যায়নি";
+    toast(msg);
+  }
+}
+async function rejectRequest(id){try{const ref=REQUESTS().doc(id),snap=await ref.get();if(!snap.exists||snap.data()?.receiverUid!==me.uid)return toast("Request পাওয়া যায়নি");await ref.set({status:"rejected",respondedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});toast("Request declined")}catch(e){console.error(e);toast("কাজটি করা যায়নি")}}
 function updateRequestBadge(){const n=requests.length;["requestBadge","navPeopleBadge"].forEach(id=>{const e=$(id);e.textContent=n;e.classList.toggle("hidden",!n)})}
 async function updateStats(){if(!me)return;const msgs=await getLatestMessages();$("statChats").textContent=new Set(msgs.map(m=>m.senderUid===me.uid?m.receiverUid:m.senderUid)).size;$("statFriends").textContent=friends.length;$("statSent").textContent=msgs.filter(m=>m.senderUid===me.uid).length}
 window.openUser=uid=>{const u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);if(!u)return;$("userModalAvatar").src=avatar(u);$("userModalName").textContent=u.displayName||"User";$("userModalEmail").textContent=u.email||"";$("userModalBio").textContent=u.bio||"No bio added.";$("userModalChat").onclick=()=>{closeAllModals();openChat(uid)};$("userModal").classList.remove("hidden")};
 
-function subscribeChat(uid){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];const ref=MESSAGES();chatUnsubs.push(ref.where("senderUid","==",me.uid).where("receiverUid","==",uid).onSnapshot(renderMessages));chatUnsubs.push(ref.where("senderUid","==",uid).where("receiverUid","==",me.uid).onSnapshot(renderMessages))}
+function subscribeChat(uid){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];const ref=MESSAGES();if(activeFriend?.isGroup){chatUnsubs.push(ref.where("groupId","==",uid).onSnapshot(renderMessages));}else{chatUnsubs.push(ref.where("senderUid","==",me.uid).where("receiverUid","==",uid).onSnapshot(renderMessages));chatUnsubs.push(ref.where("senderUid","==",uid).where("receiverUid","==",me.uid).onSnapshot(renderMessages));}}
 async function renderMessages(){
   if(!activeFriend)return;
-  const[a,b]=await Promise.all([
-    MESSAGES().where("senderUid","==",me.uid).where("receiverUid","==",activeFriend.uid).get(),
-    MESSAGES().where("senderUid","==",activeFriend.uid).where("receiverUid","==",me.uid).get()
-  ]);
-  const arr=[...a.docs,...b.docs].map(d=>({id:d.id,...d.data()}))
-    .sort((x,y)=>(x.createdAt?.toMillis?.()||0)-(y.createdAt?.toMillis?.()||0));
+  let arr=[];
+  if(activeFriend.isGroup){
+    const snap=await MESSAGES().where("groupId","==",activeFriend.uid).get();
+    arr=snap.docs.map(d=>({id:d.id,...d.data()})).sort((x,y)=>(x.createdAt?.toMillis?.()||0)-(y.createdAt?.toMillis?.()||0));
+  }else{
+    const[a,b]=await Promise.all([
+      MESSAGES().where("senderUid","==",me.uid).where("receiverUid","==",activeFriend.uid).get(),
+      MESSAGES().where("senderUid","==",activeFriend.uid).where("receiverUid","==",me.uid).get()
+    ]);
+    arr=[...a.docs,...b.docs].map(d=>({id:d.id,...d.data()})).sort((x,y)=>(x.createdAt?.toMillis?.()||0)-(y.createdAt?.toMillis?.()||0));
+  }
   const box=$("messages");
   const escUrl=u=>esc(u||"");
   box.innerHTML=arr.length?arr.map(m=>{
@@ -55,6 +143,7 @@ async function renderMessages(){
     const files=[...(Array.isArray(m.files)?m.files:[]),...legacyFile];
     const uniqueFiles=files.filter((f,i,a)=>f.downloadPage&&a.findIndex(x=>x.downloadPage===f.downloadPage)===i);
     return`<div class="msg-row ${mine?"mine":"theirs"}"><div class="bubble">
+      ${activeFriend.isGroup&&!mine?`<div style="font-size:9px;font-weight:800;opacity:.7;margin-bottom:3px">${esc(users.find(u=>u.uid===m.senderUid)?.displayName||"Member")}</div>`:""}
       ${m.text?`<div>${esc(m.text).replace(/\n/g,"<br>")}</div>`:""}
       ${imgs.map(u=>`<img class="msg-img" src="${escUrl(u)}" onclick="showImage('${escUrl(u)}')">`).join("")}
       ${uniqueFiles.map(f=>`<a class="file-card" href="${escUrl(f.downloadPage)}" target="_blank" rel="noopener">
@@ -68,11 +157,16 @@ async function renderMessages(){
   box.scrollTop=box.scrollHeight;
 }
 window.showImage=url=>{$("lightboxImg").src=url;$("lightbox").classList.remove("hidden")};
-function setChatHeader(u){$("chatName").textContent=u.displayName||"User";$("chatAvatar").src=avatar(u);$("chatStatus").textContent=u.online?"online":`last seen ${time(u.lastSeen)}`;$("chatPresence").classList.toggle("online",!!u.online)}
+function setChatHeader(u){$("chatName").textContent=u.isGroup?(u.name||"Group"):u.displayName||"User";$("chatAvatar").src=u.isGroup?"https://placehold.co/120x120/2563eb/ffffff?text=G":avatar(u);$("chatStatus").textContent=u.isGroup?`${(u.memberUids||[]).length} জন সদস্য`:(u.online?"online":`last seen ${time(u.lastSeen)}`);$("chatPresence").classList.toggle("online",!!u.online&&!u.isGroup)}
 async function openChat(uid){
   await idbOpen();let u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);if(!u)return;activeFriend=u;setChatHeader(u);$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(uid);watchTyping();await renderMessages()}
-function closeChat(){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];if(typingUnsub)typingUnsub();typingUnsub=null;activeFriend=null;$("chatPanel")?.classList.add("hidden");document.body.style.overflow="";attachedImages=[];attachedFile=null;renderUploadQueue()}
-function watchTyping(){if(!activeFriend)return;if(typingUnsub)typingUnsub();typingUnsub=USERS().doc(activeFriend.uid).onSnapshot(s=>{$("typing").classList.toggle("hidden",(s.data()||{}).typingTo!==me.uid)})}
+async function openGroupChat(groupId){
+  const g=groups.find(x=>x.id===groupId);if(!g)return toast("গ্রুপ পাওয়া যায়নি");
+  if(!(g.memberUids||[]).includes(me.uid))return toast("আপনি এই গ্রুপের সদস্য নন");
+  await idbOpen();activeFriend={...g,uid:g.id,isGroup:true};setChatHeader(activeFriend);$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(groupId);watchTyping();await renderMessages()
+}
+function closeChat(){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];if(typingUnsub)typingUnsub();typingUnsub=null;activeFriend=null;$("chatPanel")?.classList.add("hidden");document.body.style.overflow="";attachedImages=[];attachedFiles=[];renderUploadQueue()}
+function watchTyping(){if(typingUnsub)typingUnsub();if(!activeFriend||activeFriend.isGroup){$("typing").classList.add("hidden");return}typingUnsub=USERS().doc(activeFriend.uid).onSnapshot(s=>{$("typing").classList.toggle("hidden",(s.data()||{}).typingTo!==me.uid)})}
 
 async function uploadImage(file,onProgress){if(file.size>32*1024*1024)throw new Error("Image 32MB-এর বেশি হতে পারবে না");const fd=new FormData();fd.append("image",file);const r=await fetch(`https://api.imgbb.com/1/upload?key=${IMAGE_UPLOAD_KEY}`,{method:"POST",body:fd});const j=await r.json();if(!j.success)throw new Error("ছবি আপলোড করা যায়নি");if(onProgress)onProgress(100);return j.data.url}
 
@@ -116,24 +210,9 @@ async function sendMessage(e){
       fileDatas.push(await uploadFile(f));
     }
     const firstFile=fileDatas[0]||null;
-    await MESSAGES().add({
-      senderUid:me.uid,receiverUid:activeFriend.uid,text,imageUrls,
-      imageUrl:imageUrls[0]||"",
-      files:fileDatas.map(x=>({
-        downloadPage:x.downloadPage||"",
-        id:x.id||"",
-        name:x.name||"",
-        size:x.size||0,
-        mimetype:x.mimetype||""
-      })),
-      fileUrl:firstFile?.downloadPage||"",
-      fileId:firstFile?.id||"",
-      fileName:firstFile?.name||"",
-      fileSize:firstFile?.size||0,
-      fileMime:firstFile?.mimetype||"",
-      fileHost:fileDatas.length?"external":"",
-      createdAt:firebase.firestore.FieldValue.serverTimestamp(),seen:false
-    });
+    const payload={senderUid:me.uid,text,imageUrls,imageUrl:imageUrls[0]||"",files:fileDatas.map(x=>({downloadPage:x.downloadPage||"",id:x.id||"",name:x.name||"",size:x.size||0,mimetype:x.mimetype||""})),fileUrl:firstFile?.downloadPage||"",fileId:firstFile?.id||"",fileName:firstFile?.name||"",fileSize:firstFile?.size||0,fileMime:firstFile?.mimetype||"",fileHost:fileDatas.length?"external":"",createdAt:firebase.firestore.FieldValue.serverTimestamp(),seen:false};
+    if(activeFriend.isGroup){payload.groupId=activeFriend.uid;payload.groupMemberUids=activeFriend.memberUids||[];}else payload.receiverUid=activeFriend.uid;
+    await MESSAGES().add(payload);
     input.value="";input.style.height="auto";
     attachedImages=[];attachedFiles=[];
     renderUploadQueue();toast("Message sent");
@@ -142,7 +221,7 @@ async function sendMessage(e){
     toast(err.message==="Failed to fetch"?"Upload service blocked or offline":(err.message||"Message পাঠানো যায়নি"));
   }finally{btn.disabled=false;input.focus()}
 }
-function handleTyping(){if(!activeFriend)return;clearTimeout(typingTimer);USERS().doc(me.uid).set({typingTo:activeFriend.uid,typingAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});typingTimer=setTimeout(()=>USERS().doc(me.uid).set({typingTo:null},{merge:true}).catch(()=>{}),1200)}
+function handleTyping(){if(!activeFriend||activeFriend.isGroup)return;clearTimeout(typingTimer);USERS().doc(me.uid).set({typingTo:activeFriend.uid,typingAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});typingTimer=setTimeout(()=>USERS().doc(me.uid).set({typingTo:null},{merge:true}).catch(()=>{}),1200)}
 async function saveProfile(){const name=$("editName").value.trim();if(!name)return;try{const photo=$("editPhoto").value.trim()||null,bio=$("editBio").value.trim();await USERS().doc(me.uid).set({displayName:name,photoURL:photo,bio,profileUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});profile={...profile,displayName:name,photoURL:photo,bio};syncProfile();closeAllModals();toast("Profile updated")}catch(e){toast("Profile save হয়নি")}}
 
 
@@ -395,7 +474,7 @@ auth.onAuthStateChanged(async user=>{if(user){me=user;$("loginScreen").classList
 
 document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>showView(b.dataset.view));
 document.querySelectorAll("[data-people-tab]").forEach(b=>b.onclick=()=>{peopleTab=b.dataset.peopleTab;document.querySelectorAll("[data-people-tab]").forEach(x=>x.classList.toggle("active",x===b));renderPeople()});
-$("peopleSearch").oninput=renderPeople;$("chatSearch").oninput=renderChats;
+$("peopleSearch").oninput=renderPeople;$("chatSearch").oninput=renderChats;$("groupSearch").oninput=renderGroups;$("createGroupBtn").onclick=showGroupModal;$("saveGroupBtn").onclick=createGroup;
 $("refreshBtn").onclick=()=>{renderChats();renderPeople();toast("Refreshed")};
 $("newChatBtn").onclick=()=>{showView("peopleView");peopleTab="all";document.querySelectorAll("[data-people-tab]").forEach(x=>x.classList.toggle("active",x.dataset.peopleTab==="all"));renderPeople();$("peopleSearch").focus()};
 $("backChat").onclick=closeChat;$("composer").onsubmit=sendMessage;
@@ -417,7 +496,7 @@ $("settingsFromProfile").onclick=showSettings;
 
 $("logoutBtn").onclick=async()=>{if(confirm("Log out করবেন?")){if(me)await USERS().doc(me.uid).set({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});await auth.signOut()}};
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$(b.dataset.close).classList.add("hidden"));
-$("chatInfo").onclick=()=>{if(activeFriend)openUser(activeFriend.uid)};
+$("chatInfo").onclick=()=>{if(!activeFriend)return;if(activeFriend.isGroup){toast(`${activeFriend.name||"Group"} · ${(activeFriend.memberUids||[]).length} জন সদস্য`);return}openUser(activeFriend.uid)};
 $("closeLightbox").onclick=()=>{$("lightbox").classList.add("hidden");$("lightboxImg").src=""};
 
 
