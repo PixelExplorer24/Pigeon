@@ -8,6 +8,279 @@ const FILE_UPLOAD_ENDPOINT="https://upload.gofile.io/uploadfile";
 let me=null,profile=null,users=[],friends=[],requests=[],sentRequests=[],groups=[],activeFriend=null,chatUnsubs=[],listUnsubs=[],typingUnsub=null,typingTimer=null,attachedImages=[],attachedFiles=[],messageMap=new Map(),activeMessageMap=new Map(),peopleTab="friends";
 const CACHE_PREFIX="fm_cache_v10_";
 let authResolved=false;
+const AGORA_APP_ID="addaf4af54e845beb818de869a7de813";
+const CALLS=()=>ROOT().collection("calls");
+let agoraClient=null,localMicTrack=null,localCamTrack=null,activeCall=null,incomingCall=null,callUnsub=null,callInviteUnsub=null,remoteUsers=new Map();
+let callTimerInterval=null,callStartedAt=0;
+const CALL_TOKEN=null; // Keep null when Agora App Certificate/token authentication is disabled.
+function callChannel(id){return "fm_"+String(id).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,55)}
+function callTarget(){return activeFriend?.isGroup?activeFriend.uid:activeFriend?.uid}
+function participantName(uid){if(String(uid)===String(me?.uid))return "You";const u=users.find(x=>String(x.uid)===String(uid));return u?.displayName||u?.email?.split("@")[0]||"Participant"}
+function setCallStatus(t){if($("callStatus"))$("callStatus").textContent=t}
+function formatCallDuration(ms){const total=Math.max(0,Math.floor(ms/1000));const h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60;return h?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`}
+function stopCallTimer(){if(callTimerInterval){clearInterval(callTimerInterval);callTimerInterval=null}callStartedAt=0;const e=$("callTimer");if(e){e.textContent="00:00";e.classList.add("hidden")}}
+function startCallTimer(startMs){stopCallTimer();callStartedAt=Number(startMs)||Date.now();const e=$("callTimer");if(!e)return;e.classList.remove("hidden");const tick=()=>{if(e) e.textContent=formatCallDuration(Date.now()-callStartedAt)};tick();callTimerInterval=setInterval(tick,1000)}
+function setCallNetwork(level){const e=$("callNetwork");if(!e)return;e.className="call-network "+(level==="poor"?"bad":level==="fair"?"ok":"");e.innerHTML=`<i class="fa-solid fa-signal"></i> ${level==="poor"?"Weak":level==="fair"?"Fair":"Good"}`}
+let callTransitionTimer=null;
+function callUi(show){
+  const overlay=$("callOverlay");
+  if(!overlay)return;
+  clearTimeout(callTransitionTimer);
+  $("callParticipantsPanel")?.classList.add("hidden");
+  if(show){
+    overlay.classList.remove("hidden","call-exiting");
+    // Force a fresh animation even when switching rapidly between calls.
+    overlay.classList.remove("call-entering"); void overlay.offsetWidth; overlay.classList.add("call-entering");
+    if($("callEmpty"))$("callEmpty").classList.remove("hidden");
+    callTransitionTimer=setTimeout(()=>overlay.classList.remove("call-entering"),700);
+  }else{
+    overlay.classList.remove("call-entering");
+    if(!overlay.classList.contains("hidden")){
+      overlay.classList.add("call-exiting");
+      callTransitionTimer=setTimeout(()=>{overlay.classList.add("hidden");overlay.classList.remove("call-exiting");},360);
+    }else overlay.classList.add("hidden");
+  }
+}
+function addRemoteVideo(user){
+  const id="remote_"+user.uid; let box=$(id);
+  if(!box){box=document.createElement("div");box.id=id;box.className="remote-video";box.innerHTML=`<div id="${id}_view"></div><div class="remote-label-wrap"><span class="remote-label-name">${esc(participantName(user.uid))}</span><span class="remote-label-status">Live</span></div>`;$("remoteVideos").appendChild(box)}
+  $("callEmpty")?.classList.add("hidden"); user.videoTrack?.play(id+"_view"); updateCallParticipants();
+}
+function removeRemoteVideo(uid){$("remote_"+uid)?.remove();remoteUsers.delete(uid);if(!$("remoteVideos")?.children.length)$("callEmpty")?.classList.remove("hidden");updateCallParticipants()}
+function cleanupCallUI(){stopCallTimer();remoteUsers.forEach((u)=>{try{u.videoTrack?.stop()}catch(_){}});remoteUsers.clear();$("remoteVideos").innerHTML="";$("localVideo").innerHTML="";$("localVideoWrap").classList.add("hidden");$("callEmpty").classList.remove("hidden");callUi(false)}
+function updateCallParticipants(){
+  const header=$("callHeaderName");
+  if(!header)return;
+  const group=activeCall?.groupId ? groups.find(g=>g.uid===activeCall.groupId||g.id===activeCall.groupId) : null;
+  if(activeCall?.groupId){
+    const connected=remoteUsers.size+1;
+    header.textContent=(group?.name||"Group call") + ` · ${connected} participants`;
+  }
+  document.querySelectorAll(".remote-video").forEach(el=>{
+    const uid=el.id.replace(/^remote_/,'');
+    const n=el.querySelector(".remote-label-name");
+    if(n)n.textContent=participantName(uid);
+    el.classList.toggle("pinned",String(uid)===String(pinnedCallParticipant));
+  });
+  const groupBtn=$("callParticipantsBtn");
+  if(groupBtn){
+    groupBtn.classList.toggle("hidden",!activeCall?.groupId);
+    const badge=$("callParticipantBadge");
+    if(badge)badge.textContent=String(remoteUsers.size+1);
+  }
+  if(activeCall?.groupId)renderCallParticipants();
+}
+function callParticipantRows(){
+  const rows=[{uid:me?.uid,name:"You",photo:profile?.photoURL||me?.photoURL||null,self:true}];
+  remoteUsers.forEach(u=>rows.push({uid:String(u.uid),name:participantName(u.uid),photo:users.find(x=>String(x.uid)===String(u.uid))?.photoURL||null,user:u}));
+  return rows;
+}
+function renderCallParticipants(){
+  const list=$("callParticipantsList"),sub=$("callParticipantsSub");
+  if(!list)return;
+  const rows=callParticipantRows();
+  if(sub)sub.textContent=`${rows.length} connected`;
+  list.innerHTML="";
+  rows.forEach(p=>{
+    const row=document.createElement("div");row.className="call-participant-row";
+    const muted=!p.self&&mutedRemoteParticipants.has(String(p.uid));
+    const pinned=String(p.uid)===String(pinnedCallParticipant);
+    row.innerHTML=`<img class="call-participant-avatar" src="${esc(p.photo||avatar(users.find(u=>String(u.uid)===String(p.uid))))}" alt="">
+      <div class="call-participant-info"><b>${esc(p.name)}${p.self?" (You)":""}</b><small>${p.self?"Your microphone":"Connected"}${p.uid===pinnedCallParticipant?" · Pinned":""}</small></div>
+      <div class="call-participant-actions">
+        ${!p.self?`<button class="call-participant-action ${muted?"active":""}" data-call-person-action="mute" data-uid="${esc(p.uid)}" title="${muted?"Unmute":"Mute"}"><i class="fa-solid ${muted?"fa-volume-xmark":"fa-volume-high"}"></i></button>`:""}
+        ${!p.self?`<button class="call-participant-action ${pinned?"active":""}" data-call-person-action="pin" data-uid="${esc(p.uid)}" title="${pinned?"Unpin":"Pin"}"><i class="fa-solid fa-thumbtack"></i></button>`:""}
+        ${!p.self&&activeCall?.caller?`<button class="call-participant-action danger" data-call-person-action="remove" data-uid="${esc(p.uid)}" title="Remove"><i class="fa-solid fa-user-minus"></i></button>`:""}
+      </div>`;
+    list.appendChild(row);
+  });
+  if(!rows.length)list.innerHTML='<div class="call-participant-empty">No connected participants.</div>';
+}
+async function toggleRemoteMute(uid){
+  const key=String(uid),u=remoteUsers.get(uid)||remoteUsers.get(Number(uid));
+  if(!u?.audioTrack)return;
+  const next=!mutedRemoteParticipants.has(key);
+  try{u.audioTrack.setVolume(next?0:100)}catch(_){}
+  next?mutedRemoteParticipants.add(key):mutedRemoteParticipants.delete(key);
+  renderCallParticipants();
+}
+function pinCallParticipant(uid){
+  pinnedCallParticipant=String(pinnedCallParticipant)===String(uid)?null:String(uid);
+  document.querySelectorAll(".remote-video").forEach(el=>el.classList.toggle("pinned",el.id.replace(/^remote_/,'')===pinnedCallParticipant));
+  renderCallParticipants();
+}
+async function removeCallParticipant(uid){
+  if(!activeCall?.caller||!activeCall?.ref)return;
+  if(!confirm("এই participant-কে call থেকে remove করবেন?"))return;
+  const key=String(uid);
+  try{
+    await activeCall.ref.set({kickedUids:firebase.firestore.FieldValue.arrayUnion(key)},{merge:true});
+    const u=remoteUsers.get(uid)||remoteUsers.get(Number(uid));
+    try{u?.audioTrack?.stop()}catch(_){}
+    removeRemoteVideo(uid);remoteUsers.delete(uid);updateCallParticipants();
+    toast("Participant removed");
+  }catch(e){console.error(e);toast("Participant remove করা যায়নি")}
+}
+function closeCallParticipants(){ $("callParticipantsPanel")?.classList.add("hidden"); }
+async function setupAgora(mode,channel){
+  if(!window.AgoraRTC)throw new Error("Agora SDK load হয়নি");
+  if(agoraClient){try{agoraClient.removeAllListeners();await agoraClient.leave()}catch(_){} agoraClient=null}
+  agoraClient=AgoraRTC.createClient({mode:"rtc",codec:"vp8"});
+  agoraClient.on("user-published",async(user,mediaType)=>{await agoraClient.subscribe(user,mediaType);remoteUsers.set(user.uid,user);if(mediaType==="video")addRemoteVideo(user);if(mediaType==="audio"){user.audioTrack?.play();applyPlaybackDevice(user.audioTrack)}});
+  agoraClient.on("user-unpublished",(user,mediaType)=>{if(mediaType==="video")removeRemoteVideo(user.uid)});
+  agoraClient.on("user-left",user=>removeRemoteVideo(user.uid));
+  agoraClient.on("network-quality",q=>{const n=Math.max(q.uplinkNetworkQuality||0,q.downlinkNetworkQuality||0);setCallNetwork(n>=5?"poor":n>=3?"fair":"good")});
+  await agoraClient.join(AGORA_APP_ID,channel,CALL_TOKEN,me?.uid||null);
+  if(mode==="audio"){localMicTrack=await AgoraRTC.createMicrophoneAudioTrack({encoderConfig:"speech_low_quality"})}
+  else{
+    [localMicTrack,localCamTrack]=await AgoraRTC.createMicrophoneAndCameraTracks(
+      {encoderConfig:"speech_low_quality"},
+      {encoderConfig:{width:1920,height:1080,frameRate:30,bitrateMin:800,bitrateMax:4500}}
+    );
+    $("localVideoWrap").classList.remove("hidden");localCamTrack.play("localVideo");
+  }
+  await agoraClient.publish(mode==="audio"?[localMicTrack]:[localMicTrack,localCamTrack]);
+}
+let cameraPreviewStream=null,cameraPreviewFacing="user",cameraPreviewMuted=false,cameraPreviewLightOn=false,pendingVideoCall=null;
+function closeCameraPreview(){
+  if(cameraPreviewStream){cameraPreviewStream.getTracks().forEach(t=>t.stop());cameraPreviewStream=null}
+  $("cameraPreviewVideo")?.pause();$("cameraPreviewVideo")?.removeAttribute("srcObject");$("cameraPreviewModal")?.classList.add("hidden");pendingVideoCall=null;
+}
+async function openCameraPreview(){
+  const modal=$("cameraPreviewModal"),video=$("cameraPreviewVideo"); if(!modal||!video)return false;
+  try{
+    cameraPreviewFacing="user"; cameraPreviewMuted=false; cameraPreviewLightOn=false;
+    cameraPreviewStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"user"},width:{ideal:1920},height:{ideal:1080}},audio:true});
+    video.srcObject=cameraPreviewStream; await video.play().catch(()=>{});
+    $("previewMuteBtn")?.classList.add("active"); $("previewMuteBtn")?.classList.remove("muted");
+    $("cameraPreviewLight")?.classList.add("hidden"); $("cameraPreviewStatus").innerHTML='<i class="fa-solid fa-circle"></i> Camera ready';
+    modal.classList.remove("hidden"); return true;
+  }catch(e){console.error(e);toast("Camera permission is required for video call");return false}
+}
+async function flipPreviewCamera(){
+  if(!cameraPreviewStream)return;
+  const wasMuted=cameraPreviewMuted;
+  cameraPreviewStream.getTracks().forEach(t=>t.stop());
+  cameraPreviewFacing=cameraPreviewFacing==="user"?"environment":"user";
+  try{cameraPreviewStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cameraPreviewFacing},width:{ideal:1920},height:{ideal:1080}},audio:true});
+    cameraPreviewStream.getAudioTracks().forEach(t=>t.enabled=!wasMuted);$("cameraPreviewVideo").srcObject=cameraPreviewStream;await $("cameraPreviewVideo").play().catch(()=>{});$("cameraPreviewVideo").style.transform=cameraPreviewFacing==="user"?"scaleX(-1)":"scaleX(1)";}catch(e){toast("Unable to switch camera")}
+}
+function togglePreviewMute(){cameraPreviewMuted=!cameraPreviewMuted;cameraPreviewStream?.getAudioTracks().forEach(t=>t.enabled=!cameraPreviewMuted);const b=$("previewMuteBtn");b?.classList.toggle("active",!cameraPreviewMuted);b?.classList.toggle("muted",cameraPreviewMuted);if(b)b.innerHTML=cameraPreviewMuted?'<i class="fa-solid fa-microphone-slash"></i><span>Muted</span>':'<i class="fa-solid fa-microphone"></i><span>Mic</span>'}
+function togglePreviewLight(){cameraPreviewLightOn=!cameraPreviewLightOn;$("cameraPreviewLight")?.classList.toggle("hidden",!cameraPreviewLightOn);$("previewLightBtn")?.classList.toggle("active",cameraPreviewLightOn)}
+
+async function launchCall(mode){
+  if(!me||!activeFriend)return;
+  if(!activeFriend.isGroup&&!isFriend(activeFriend.uid))return toast("আগে Friend Request গ্রহণ করতে হবে");
+  const channel=callChannel(activeFriend.isGroup?activeFriend.uid:pair(me.uid,activeFriend.uid));
+  const callId=CALLS().doc().id;
+  const participants=activeFriend.isGroup?(activeFriend.memberUids||[]).filter(x=>x!==me.uid):[activeFriend.uid];
+  const ref=CALLS().doc(callId);
+  const payload={callId,callerUid:me.uid,callerName:profile?.displayName||me.displayName||"User",callerPhoto:profile?.photoURL||me.photoURL||null,mode,channel,groupId:activeFriend.isGroup?activeFriend.uid:null,recipientUids:participants,status:"ringing",createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+  await ref.set(payload);
+  activeCall={callId,mode,channel,ref,caller:true,groupId:activeFriend.isGroup?activeFriend.uid:null};watchActiveCall();
+  $("callHeaderName").textContent=activeFriend.isGroup?`${activeFriend.name||"Group"} · Group call`:activeFriend.displayName||"Call";
+  $("callHeaderAvatar").src=avatar(activeFriend);callUi(true);updateCallParticipants();setCallStatus("Connecting…");
+  try{await setupAgora(mode,channel);setCallStatus("কলের উত্তর অপেক্ষা…")}catch(e){console.error(e);toast("কল শুরু করা যায়নি");await endCall(true)}
+
+}
+async function startCall(mode){
+  if(mode==="video"){
+    if(!me||!activeFriend)return;
+    if(!activeFriend.isGroup&&!isFriend(activeFriend.uid))return toast("আগে Friend Request গ্রহণ করতে হবে");
+    pendingVideoCall={mode};
+    $("cameraPreviewTargetName").textContent=activeFriend.isGroup?(activeFriend.name||"Group call"):(activeFriend.displayName||"Video call");
+    if(await openCameraPreview())return;
+    pendingVideoCall=null; return;
+  }
+  return launchCall(mode);
+}
+
+async function acceptCall(){
+  const c=incomingCall;if(!c)return;
+  if(activeCall){toast("আপনি ইতিমধ্যে একটি কলে আছেন");return;}
+  $("callInviteModal").classList.add("hidden");incomingCall=null;
+  activeCall={callId:c.callId,mode:c.mode,channel:c.channel,ref:CALLS().doc(c.callId),caller:false,groupId:c.groupId||null};watchActiveCall();
+  $("callHeaderName").textContent=c.groupId?(c.callerName+" · Group call"):c.callerName;$("callHeaderAvatar").src=c.callerPhoto||avatar(users.find(u=>u.uid===c.callerUid));callUi(true);updateCallParticipants();setCallStatus("Connecting…");
+  try{await setupAgora(c.mode,c.channel);setCallStatus(c.mode==="video"?"ভিডিও কল চলছে":"অডিও কল চলছে");startCallTimer(Date.now());await activeCall.ref.set({status:"accepted",acceptedBy:me.uid,acceptedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}
+  catch(e){console.error(e);toast("কল গ্রহণ করা যায়নি");await endCall(true)}
+}
+async function rejectIncomingCall(){const c=incomingCall;if(!c)return;$("callInviteModal").classList.add("hidden");incomingCall=null;try{await CALLS().doc(c.callId).set({status:"rejected",rejectedBy:me.uid,rejectedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(_){}}
+async function endCall(silent=false){
+  const c=activeCall;activeCall=null;
+  if(callUnsub){try{callUnsub()}catch(_){} callUnsub=null;}
+  try{localMicTrack?.stop();localMicTrack?.close();localCamTrack?.stop();localCamTrack?.close()}catch(_){}
+  localMicTrack=localCamTrack=null;
+  try{if(agoraClient){await agoraClient.leave();agoraClient.removeAllListeners();}}catch(_){}
+  agoraClient=null;pinnedCallParticipant=null;mutedRemoteParticipants.clear();closeCallParticipants();cleanupCallUI();incomingCall=null;
+  if(c&&!silent)try{await c.ref.set({status:"ended",endedBy:me.uid,endedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}catch(_){}
+}
+
+let selectedPlaybackDevice="default";
+let playbackMode="speaker";
+async function listPlaybackDevices(){
+  try{
+    if(!window.AgoraRTC?.getPlaybackDevices)return [];
+    return await AgoraRTC.getPlaybackDevices();
+  }catch(e){console.warn("playback devices",e);return []}
+}
+async function applyPlaybackDevice(track){
+  if(!track)return;
+  try{
+    if(typeof track.setPlaybackDevice==="function" && selectedPlaybackDevice!=="default"){await track.setPlaybackDevice(selectedPlaybackDevice);return true}
+  }catch(e){console.warn("set playback device",e)}
+  return false
+}
+async function setPlaybackOutput(deviceId,mode="speaker"){
+  playbackMode=mode;selectedPlaybackDevice=deviceId||"default";
+  const tracks=[];remoteUsers.forEach(u=>{if(u.audioTrack)tracks.push(u.audioTrack)});
+  for(const track of tracks){try{await applyPlaybackDevice(track)}catch(_){}}
+  const btn=$("speakerCallBtn");
+  if(btn){btn.classList.add("active");btn.innerHTML=mode==="earpiece"?'<i class="fa-solid fa-mobile-screen-button"></i><span>Earpiece</span>':'<i class="fa-solid fa-volume-high"></i><span>Speaker</span>'}
+  $("audioOutputMenu")?.classList.add("hidden");
+  toast(mode==="earpiece"?"Earpiece selected":"Speaker selected");
+}
+async function openAudioOutputMenu(){
+  const menu=$("audioOutputMenu");if(!menu)return;
+  menu.classList.toggle("hidden");
+  if(menu.classList.contains("hidden"))return;
+  const list=$("audioOutputDevices");
+  list.innerHTML='<div class="audio-output-loading">অডিও ডিভাইস খোঁজা হচ্ছে…</div>';
+  const devices=await listPlaybackDevices();
+  list.innerHTML="";
+  const add=(label,icon,id,mode,disabled=false)=>{const b=document.createElement("button");b.className="audio-output-item"+(playbackMode===mode?" selected":"")+(disabled?" disabled":"");b.disabled=disabled;b.innerHTML=`<i class="fa-solid ${icon}"></i><span>${label}</span>${playbackMode===mode?'<i class="fa-solid fa-check check"></i>':''}`;b.onclick=()=>setPlaybackOutput(id,mode);list.appendChild(b)};
+  add("Speaker","fa-volume-high","default","speaker");
+  const receiver=devices.find(d=>/earpiece|receiver|handset|receiver|telephony/i.test(d.label||""));
+  if(receiver)add("Earpiece / Receiver","fa-mobile-screen-button",receiver.deviceId,"earpiece");
+  const extras=devices.filter(d=>d.deviceId!=="default" && (!receiver||d.deviceId!==receiver.deviceId));
+  extras.slice(0,6).forEach(d=>add(d.label||"Audio output","fa-headphones",d.deviceId,"speaker"));
+  if(!devices.length){const note=document.createElement("div");note.className="audio-output-note";note.textContent="এই ব্রাউজারে আলাদা output device শনাক্ত করা যায়নি। Speaker mode ব্যবহার করা হবে।";list.appendChild(note)}
+}
+
+async function toggleMute(){if(!localMicTrack)return;const muted=localMicTrack.muted;await localMicTrack.setMuted(!muted);$("muteCallBtn").classList.toggle("active",muted);$("muteCallBtn").innerHTML=muted?'<i class="fa-solid fa-microphone-slash"></i><span>Unmute</span>':'<i class="fa-solid fa-microphone"></i><span>Mute</span>'}
+async function toggleCamera(){if(!localCamTrack)return;const muted=localCamTrack.muted;await localCamTrack.setMuted(!muted);$("cameraCallBtn").classList.toggle("active",muted);$("cameraCallBtn").innerHTML=muted?'<i class="fa-solid fa-video-slash"></i><span>Camera off</span>':'<i class="fa-solid fa-video"></i><span>Camera</span>'}
+function watchCallInvites(){
+  if(!me)return;
+  if(callInviteUnsub)callInviteUnsub();
+  callInviteUnsub=CALLS().where("recipientUids","array-contains",me.uid).onSnapshot(s=>{
+    s.docChanges().filter(c=>c.type==="added"||c.type==="modified").forEach(ch=>{
+      const c={id:ch.doc.id,...ch.doc.data()};
+      if(c.callerUid===me.uid || c.status!=="ringing")return;
+      if(activeCall || incomingCall?.callId===c.callId)return;
+      incomingCall=c;$("incomingCallAvatar").src=c.callerPhoto||avatar(users.find(u=>u.uid===c.callerUid));$("incomingCallName").textContent=c.callerName||"Incoming call";$("incomingCallType").textContent=c.mode==="video"?"ভিডিও কল":"অডিও কল";$("callInviteModal").classList.remove("hidden");
+    });
+  },e=>console.warn("call invite listener",e));
+}
+function watchActiveCall(){
+  if(callUnsub)callUnsub();
+  if(!activeCall)return;
+  callUnsub=activeCall.ref.onSnapshot(s=>{
+    if(!s.exists)return;const c=s.data();
+    if(c.status==="accepted"&&!callStartedAt){setCallStatus(c.mode==="video"?"ভিডিও কল চলছে":"অডিও কল চলছে");startCallTimer(c.acceptedAt?.toMillis?.()||Date.now())}
+    if(c.kickedUids?.map(String).includes(String(me?.uid))){toast("আপনাকে group call থেকে remove করা হয়েছে");endCall(true);return;}
+    if(c.status==="ended"||c.status==="rejected")endCall(true);
+  });
+}
+
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 const avatar=u=>u?.photoURL||"https://placehold.co/120x120/e5e7eb/64748b?text=U";
 const pair=(a,b)=>[a,b].sort().join("__");
@@ -525,7 +798,7 @@ auth.onAuthStateChanged(async user=>{
     document.body.classList.remove("booting");
     profile=loadLocal("profile",{uid:user.uid,displayName:user.displayName||user.email?.split("@")[0]||"User",email:user.email||"",photoURL:user.photoURL||null,bio:"Fast Messenger profile"});
     syncProfile();syncMenu();hydrateLocalCache();
-    heartbeat();startListeners();watchIncomingNotifications();
+    heartbeat();startListeners();watchIncomingNotifications();watchCallInvites();
     ensureUser().then(()=>saveLocal("profile",profile)).catch(e=>console.warn("profile sync delayed",e));
   }else{
     localStorage.removeItem("fm_session_uid");
@@ -607,6 +880,26 @@ function watchIncomingNotifications(){
     lastKnownIncoming=Math.max(lastKnownIncoming,newest);
   });
 }
+
+$("audioCallBtn").onclick=()=>startCall("audio");
+$("videoCallBtn").onclick=()=>startCall("video");
+$("acceptCallBtn").onclick=acceptCall;
+$("rejectCallBtn").onclick=rejectIncomingCall;
+$("endCallBtn").onclick=()=>endCall(false);
+$("muteCallBtn").onclick=toggleMute;
+$("cameraCallBtn").onclick=toggleCamera;
+$("speakerCallBtn").onclick=openAudioOutputMenu;
+$("callParticipantsBtn").onclick=()=>{renderCallParticipants();$("callParticipantsPanel")?.classList.toggle("hidden")};
+$("closeCallParticipantsBtn").onclick=closeCallParticipants;
+$("callParticipantsList").onclick=e=>{
+  const b=e.target.closest("[data-call-person-action]");if(!b)return;
+  const uid=b.dataset.uid,action=b.dataset.callPersonAction;
+  if(action==="mute")toggleRemoteMute(uid);
+  else if(action==="pin")pinCallParticipant(uid);
+  else if(action==="remove")removeCallParticipant(uid);
+};
+document.addEventListener("click",e=>{const menu=$("audioOutputMenu");if(!menu||menu.classList.contains("hidden"))return;if(!menu.contains(e.target)&&!$("speakerCallBtn")?.contains(e.target))menu.classList.add("hidden")});
+
 const originalAuthHandler = auth.currentUser;
 
 // ===== v4 startup hooks =====
@@ -623,4 +916,15 @@ document.addEventListener("DOMContentLoaded",async()=>{
       if(conversationId&&oldestLoadedCreatedAt)loadOlderLocalMessages();
     }
   });
+});
+
+
+/* Camera preview controls */
+document.addEventListener("click",async e=>{
+  const id=e.target.closest("button")?.id;
+  if(id==="closeCameraPreviewBtn"){closeCameraPreview();return}
+  if(id==="previewMuteBtn"){togglePreviewMute();return}
+  if(id==="previewFlipBtn"){await flipPreviewCamera();return}
+  if(id==="previewLightBtn"){togglePreviewLight();return}
+  if(id==="startVideoCallBtn"){if(pendingVideoCall){const mode=pendingVideoCall.mode;closeCameraPreview();pendingVideoCall=null;await launchCall(mode)}}
 });
