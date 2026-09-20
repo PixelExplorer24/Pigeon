@@ -69,7 +69,7 @@ button.settings-item:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba
 
 .policy-card{max-height:min(680px,90vh)}
 .policy-icon{width:48px;height:48px;border-radius:15px;background:#eff6ff;color:#2563eb;display:grid;place-items:center;font-size:20px;margin-bottom:10px}
-.policy-scroll{max-height:58vh;overflow:auto;padding-right:5px}.policy-scroll p{font-size:11px;line-height:1.65;color:#475569;margin:0 0 12px}
+.policy-scroll{max-height:58vh;overflow:auto;padding-right:5px}.policy-scroll p{font-size:11px;line-height:1.65;color:#475569;margin:0 0 12px}.policy-scroll h4{font-size:12px;margin:15px 0 7px}.policy-scroll hr{border:0;border-top:1px solid var(--line);margin:15px 0}.support-contact{display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid var(--line);border-radius:13px;padding:11px;margin:12px 0}.support-contact>span{font-size:19px}.support-contact small,.support-contact b{display:block}.support-contact small{font-size:9px;color:var(--muted);margin-bottom:2px}.support-contact b{font-size:11px;word-break:break-all}.about-note{font-size:10px!important}.about-email-btn{margin-top:4px}
 .toast{bottom:92px}
 @media(max-width:600px){.bottom-nav{height:70px}.nav-fab{width:64px;flex-basis:64px;top:-16px}.nav-fab span{width:50px;height:50px;border-radius:17px}.more-menu{top:64px;right:8px}.settings-page{padding-bottom:82px}.google-chip{left:12px;bottom:10px}}
 
@@ -84,3 +84,83 @@ button.settings-item:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba
 body.offline .sync-bar{display:none!important}
 body.dark .offline-bar{background:#3b2511;color:#fdba74;border-color:#7c2d12}
 body.dark .pull-refresh{background:#111c31;color:#60a5fa}
+
+/* ===== v5 attachment + mobile composer fixes ===== */
+.composer{
+  display:block;
+  width:100%;
+  min-width:0;
+  padding-left:max(9px,calc((100vw - 940px)/2));
+  padding-right:max(9px,calc((100vw - 940px)/2));
+}
+.composer-row{
+  width:100%;
+  min-width:0;
+  display:flex;
+  align-items:flex-end;
+  gap:8px;
+}
+.media-actions{
+  flex:0 0 auto;
+  display:flex;
+  align-items:flex-end;
+  gap:6px;
+}
+.media-btn{
+  width:40px;
+  height:40px;
+  flex:0 0 40px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background:#eef2f7;
+  color:#475569;
+}
+.media-btn.image{background:#ecfdf5;color:#16a34a}
+.media-btn.file{background:#eff6ff;color:#2563eb}
+.media-btn:hover{filter:brightness(.97)}
+.compose-box{
+  min-width:0;
+  flex:1 1 auto;
+  overflow:hidden;
+}
+.compose-box textarea{
+  min-width:0;
+  width:100%;
+  box-sizing:border-box;
+}
+.upload-queue{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  display:flex;
+  gap:7px;
+  padding:7px 0 8px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:thin;
+}
+.queue-chip{
+  min-width:145px;
+  max-width:210px;
+  flex:0 0 145px;
+}
+.account-folder-panel{
+  padding:0 0 2px 12px;
+  animation:folderIn .18s ease;
+}
+.account-folder-panel .settings-item{
+  margin-bottom:8px;
+}
+.folder-chevron{transition:transform .18s ease}
+.account-folder[aria-expanded="true"] .folder-chevron{transform:rotate(180deg)}
+@keyframes folderIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media(max-width:600px){
+  .composer{padding-left:8px;padding-right:8px}
+  .composer-row{gap:6px}
+  .media-actions{gap:5px}
+  .media-btn{width:38px;height:38px;flex-basis:38px;border-radius:11px}
+  .send-btn{width:40px;height:40px}
+  .upload-queue{padding-top:6px;padding-bottom:7px}
+  .queue-chip{min-width:138px;flex-basis:138px}
+}
