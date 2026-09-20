@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="application-version" content="v10-mobile-content-safe">
+    <meta name="application-version" content="v14-cinematic-pigeon-tracking">
     <title>Carrier Pigeon</title>
     <script src="./assets/js/tailwind.config.js"></script>
-    <link rel="stylesheet" href="./assets/css/app.css?v=11">
+    <link rel="stylesheet" href="./assets/css/app.css?v=14">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 3D carrier pigeon model -->
@@ -208,6 +208,26 @@
                 </div>
                 <div id="usersListContainer" class="recipient-directory">
                     <div class="text-sm text-center text-parchment-500 py-5"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading members...</div>
+                </div>
+            </div>
+
+            <!-- Remote sender demo for tracking checks -->
+            <div class="mail-field-card border-2 border-dashed border-wax-gold/70 bg-wax-gold/10">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-parchment-900 text-wax-gold flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-tower-broadcast"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <strong class="font-cinzel text-sm text-parchment-900">Remote Sender Demo</strong>
+                            <span class="text-[9px] px-2 py-0.5 rounded-full bg-wax-gold text-parchment-900 font-bold uppercase tracking-wider">Testing</span>
+                        </div>
+                        <p class="text-[11px] text-parchment-700 mt-1 leading-5">দূরবর্তী একজন ডেমো প্রেরক থেকে আপনার বর্তমান অবস্থানের দিকে একটি সরাসরি কবুতর-ফ্লাইট চালু করুন। এটি শুধু Tracking পরীক্ষা করার জন্য।</p>
+                        <button type="button" onclick="startRemoteSenderDemo()" class="mt-3 px-4 py-2.5 rounded-xl bg-parchment-900 text-wax-gold font-cinzel font-bold text-xs shadow hover:opacity-90 transition inline-flex items-center gap-2">
+                            <i class="fa-solid fa-dove"></i><span>Start Remote Sender Demo</span>
+                        </button>
+                        <span id="remoteDemoStatus" class="ml-2 text-[10px] font-bold text-green-700"></span>
+                    </div>
                 </div>
             </div>
 
@@ -587,7 +607,7 @@ window.addEventListener('DOMContentLoaded', function(){
   if(nav){ nav.querySelectorAll('.mobile-nav-btn').forEach(btn=>{btn.style.visibility='visible'; btn.style.opacity='1';}); }
 });
 </script>
-<script src="./assets/js/app.js?v=13" defer></script>
+<script src="./assets/js/app.js?v=15-demo" defer></script>
     <script src="./assets/js/lazy-mapbox.js?v=11" defer></script>
     <script>if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));</script>
 </body>

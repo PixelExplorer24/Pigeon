@@ -17,3 +17,11 @@ The project continues using the existing Firebase project and ImgBB upload flow 
 - Adds bottom clearance so normal mobile content cannot be hidden behind fixed navigation.
 - Fullscreen Messenger hides bottom navigation while a chat is open, keeping the composer visible.
 - Map and telemetry are raised above the navigation safe area.
+
+
+## v14 tracking behavior
+- The Cine_Pigeon_fly.glb model is used as the live tracking pigeon.
+- Flight position is always a direct sender-to-receiver line; no road routing is used.
+- Tracking camera is locked to the pigeon, directly overhead (pitch 0).
+- Sender/outgoing view keeps the flight direction at the top of the screen.
+- Receiver/incoming view reverses the map bearing so the pigeon visually approaches the receiver.

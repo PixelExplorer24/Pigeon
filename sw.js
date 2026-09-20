@@ -1,11 +1,11 @@
-const CACHE = 'digital-pigeon-static-v13';
+const CACHE = 'digital-pigeon-static-v15-demo';
 const STATIC = [
   './',
   './index.html',
   './404.html',
   './assets/css/app.css?v=11',
   './assets/js/tailwind.config.js',
-  './assets/js/app.js?v=13',
+  './assets/js/app.js?v=15',
   './assets/js/lazy-mapbox.js?v=11',
   './assets/models/Cine_Pigeon_fly.glb'
 ];
