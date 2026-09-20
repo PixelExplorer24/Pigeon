@@ -6,9 +6,11 @@
     <meta name="application-version" content="v10-mobile-content-safe">
     <title>Carrier Pigeon</title>
     <script src="./assets/js/tailwind.config.js"></script>
-    <link rel="stylesheet" href="./assets/css/app.css?v=8">
+    <link rel="stylesheet" href="./assets/css/app.css?v=11">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 3D carrier pigeon model -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -289,11 +291,6 @@
             <!-- Mapbox Map Container -->
             <div class="relative rounded-xl overflow-hidden border-4 border-parchment-400 shadow-2xl h-[520px] w-full bg-parchment-300">
                 <div id="leafletMap" class="w-full h-full"></div>
-
-                <button id="mapFollowBtn" type="button" onclick="toggleMapFollowMode()" aria-pressed="false" title="Follow the pigeon automatically" class="map-follow-btn">
-                    <i class="fa-solid fa-location-arrow"></i>
-                    <span class="follow-label">Follow Pigeon</span>
-                </button>
 
                 <!-- Floating Live Pigeon Telemetry Overlay -->
                 <div id="mapTelemetryOverlay" class="absolute bottom-5 left-5 right-5 sm:right-auto sm:max-w-md bg-parchment-900/95 text-parchment-100 backdrop-blur-md p-4 rounded-xl border-2 border-wax-gold shadow-2xl z-[1000] space-y-2">
@@ -590,7 +587,7 @@ window.addEventListener('DOMContentLoaded', function(){
   if(nav){ nav.querySelectorAll('.mobile-nav-btn').forEach(btn=>{btn.style.visibility='visible'; btn.style.opacity='1';}); }
 });
 </script>
-<script src="./assets/js/app.js?v=11" defer></script>
+<script src="./assets/js/app.js?v=13" defer></script>
     <script src="./assets/js/lazy-mapbox.js?v=11" defer></script>
     <script>if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));</script>
 </body>

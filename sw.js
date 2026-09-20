@@ -1,12 +1,13 @@
-const CACHE = 'digital-pigeon-static-v11';
+const CACHE = 'digital-pigeon-static-v13';
 const STATIC = [
   './',
   './index.html',
   './404.html',
-  './assets/css/app.css?v=10',
+  './assets/css/app.css?v=11',
   './assets/js/tailwind.config.js',
-  './assets/js/app.js?v=10',
-  './assets/js/lazy-mapbox.js?v=10'
+  './assets/js/app.js?v=13',
+  './assets/js/lazy-mapbox.js?v=11',
+  './assets/models/Cine_Pigeon_fly.glb'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(STATIC)).then(() => self.skipWaiting()));
