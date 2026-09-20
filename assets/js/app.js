@@ -52,16 +52,6 @@ function hydrateLocalCache(){
   renderPeople();renderGroups();renderChats();updateStats();
 }
 function cacheMessages(){saveLocal("messages",[...messageMap.values()].slice(-800))}
-function isUnread(m){ return !!m && m.senderUid!==me?.uid && m.seen!==true; }
-function unreadForUser(uid){ return [...messageMap.values()].filter(m=>!m.groupId && m.senderUid===uid && m.receiverUid===me.uid && m.seen!==true).length; }
-function unreadForGroup(gid){ return [...messageMap.values()].filter(m=>m.groupId===gid && m.senderUid!==me.uid && m.seen!==true).length; }
-async function markConversationSeen(){
-  if(!me||!activeFriend)return;
-  const pending=[...activeMessageMap.values()].filter(m=>m.senderUid!==me.uid&&m.receiverUid===me.uid&&m.seen!==true&&!m.groupId);
-  if(!pending.length)return;
-  const batch=db.batch(); pending.slice(0,80).forEach(m=>batch.update(MESSAGES().doc(m.id),{seen:true}));
-  try{await batch.commit(); pending.forEach(m=>{m.seen=true;messageMap.set(m.id,m);activeMessageMap.set(m.id,m)});cacheMessages();renderChats();}catch(e){console.warn('mark seen',e);}
-}
 function renderChats(){
   if(!me)return;
   const q=($("chatSearch")?.value||"").trim().toLowerCase();
@@ -78,9 +68,9 @@ function renderChats(){
   const groupRows=groups.filter(g=>!q||(g.name||"").toLowerCase().includes(q)).map(g=>{
     const m=[...messageMap.values()].filter(x=>x.groupId===g.id).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0))[0];
     const preview=m?.text||((m?.imageUrls||[]).length?"📷 ছবি":m?.fileName?"📎 "+m.fileName:"নতুন গ্রুপ");
-    return `<button class="chat-item ${unreadForGroup(g.id)?"unread-chat":""}" onclick="openGroupChat('${esc(g.id)}')"><span class="group-chat-icon"><i class="fa-solid fa-user-group"></i></span><span class="item-copy"><strong>${esc(g.name||"Unnamed group")}</strong><small>${esc(preview)}</small></span>${unreadForGroup(g.id)?`<b class="unread-badge">${unreadForGroup(g.id)>99?"99+":unreadForGroup(g.id)}</b>`:""}<time class="item-meta">${m?time(m.createdAt):"Group"}</time></button>`;
+    return `<button class="chat-item" onclick="openGroupChat('${esc(g.id)}')"><span class="group-chat-icon"><i class="fa-solid fa-user-group"></i></span><span class="item-copy"><strong>${esc(g.name||"Unnamed group")}</strong><small>${esc(preview)}</small></span><time class="item-meta">${m?time(m.createdAt):"Group"}</time></button>`;
   }).join("");
-  const personal=rows.map(r=>{const un=unreadForUser(r.uid);return `<button class="chat-item ${un?"unread-chat":""}" onclick="openChat('${esc(r.uid)}')"><img class="avatar" src="${esc(avatar(r.u))}"><span class="item-copy"><strong>${esc(r.u.displayName||r.u.email||"User")}</strong><small>${esc(r.m.text||((r.m.imageUrls||[]).length?"📷 Image":r.m.fileName?"📎 "+r.m.fileName:"Message"))}</small></span>${un?`<b class="unread-badge">${un>99?"99+":un}</b>`:""}<time class="item-meta">${time(r.m.createdAt)}</time></button>`}).join("");
+  const personal=rows.map(r=>`<button class="chat-item" onclick="openChat('${esc(r.uid)}')"><img class="avatar" src="${esc(avatar(r.u))}"><span class="item-copy"><strong>${esc(r.u.displayName||r.u.email||"User")}</strong><small>${esc(r.m.text||((r.m.imageUrls||[]).length?"📷 Image":r.m.fileName?"📎 "+r.m.fileName:"Message"))}</small></span><time class="item-meta">${time(r.m.createdAt)}</time></button>`).join("");
   box.innerHTML=groupRows+personal||`<div class="empty"><i class="fa-regular fa-comments" style="font-size:28px;display:block;margin-bottom:10px"></i>কোনো conversation নেই। People থেকে একজনকে বেছে নিয়ে chat শুরু করুন।</div>`;
 }
 function renderGroups(){const box=$("groupList");if(!box)return;const q=($("groupSearch")?.value||"").trim().toLowerCase();const rows=groups.filter(g=>!q||(g.name||"").toLowerCase().includes(q));box.innerHTML=rows.length?rows.map(g=>{const ms=groupMemberUsers(g).slice(0,4);return`<button class="chat-item" onclick="openGroupChat('${esc(g.id)}')"><span class="group-avatar-mini">${ms.map(u=>`<img src="${esc(avatar(u))}" alt="">`).join("")}</span><span class="item-copy"><strong>${esc(g.name||"Unnamed group")}</strong><small>${(g.memberUids||[]).length} জন সদস্য · ${esc((g.memberUids||[]).includes(me.uid)?"আপনি সদস্য":"")}</small></span><span class="item-meta"><i class="fa-solid fa-chevron-right"></i></span></button>`}).join(""):`<div class="empty"><i class="fa-solid fa-user-group" style="font-size:28px;display:block;margin-bottom:10px"></i>এখনও কোনো গ্রুপ নেই।<br>নতুন গ্রুপ তৈরি করে আপনার বন্ধুদের যোগ করুন।</div>`}
@@ -203,13 +193,12 @@ async function openChat(uid){
   subscribeChat(uid);
   watchTyping();
   renderMessages();
-  markConversationSeen();
 }
 async function openGroupChat(groupId){
   currentConversationId=groupId;
   const g=groups.find(x=>x.id===groupId);if(!g)return toast("গ্রুপ পাওয়া যায়নি");
   if(!(g.memberUids||[]).includes(me.uid))return toast("আপনি এই গ্রুপের সদস্য নন");
-  await idbOpen();activeFriend={...g,uid:g.id,isGroup:true};setChatHeader(activeFriend);$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(groupId);watchTyping();await renderMessages();markConversationSeen()
+  await idbOpen();activeFriend={...g,uid:g.id,isGroup:true};setChatHeader(activeFriend);$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(groupId);watchTyping();await renderMessages()
 }
 function closeChat(){currentConversationId=null;chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];if(typingUnsub)typingUnsub();typingUnsub=null;activeFriend=null;$("chatPanel")?.classList.add("hidden");document.body.style.overflow="";attachedImages=[];attachedFiles=[];renderUploadQueue()}
 function watchTyping(){if(typingUnsub)typingUnsub();if(!activeFriend||activeFriend.isGroup){$("typing").classList.add("hidden");return}typingUnsub=USERS().doc(activeFriend.uid).onSnapshot(s=>{$("typing").classList.toggle("hidden",(s.data()||{}).typingTo!==me.uid)})}
@@ -570,17 +559,7 @@ $("settingsFromProfile").onclick=showSettings;
 $("logoutBtn").onclick=async()=>{if(confirm("Log out করবেন?")){if(me)await USERS().doc(me.uid).set({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});await auth.signOut()}};
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$(b.dataset.close).classList.add("hidden"));
 $("chatInfo").onclick=()=>{if(!activeFriend)return;if(activeFriend.isGroup){toast(`${activeFriend.name||"Group"} · ${(activeFriend.memberUids||[]).length} জন সদস্য`);return}openUser(activeFriend.uid)};
-let lightboxScale=1,lightboxX=0,lightboxY=0,dragging=false,dragStartX=0,dragStartY=0;
-function applyLightboxTransform(){const img=$("lightboxImg");if(img)img.style.transform=`translate(${lightboxX}px,${lightboxY}px) scale(${lightboxScale})`;}
-window.showImage=url=>{const lb=$("lightbox"),img=$("lightboxImg");lightboxScale=1;lightboxX=0;lightboxY=0;img.src=url;img.style.cursor="grab";applyLightboxTransform();lb.classList.remove("hidden");};
-$("zoomIn").onclick=()=>{lightboxScale=Math.min(5,+(lightboxScale+0.25).toFixed(2));applyLightboxTransform();};
-$("zoomOut").onclick=()=>{lightboxScale=Math.max(.5,+(lightboxScale-0.25).toFixed(2));applyLightboxTransform();};
-$("zoomReset").onclick=()=>{lightboxScale=1;lightboxX=0;lightboxY=0;applyLightboxTransform();};
-$("lightboxImg").addEventListener("wheel",e=>{e.preventDefault();lightboxScale=Math.max(.5,Math.min(5,lightboxScale+(e.deltaY<0?.2:-.2)));applyLightboxTransform();},{passive:false});
-$("lightboxImg").addEventListener("pointerdown",e=>{dragging=true;dragStartX=e.clientX-lightboxX;dragStartY=e.clientY-lightboxY;e.currentTarget.setPointerCapture(e.pointerId);});
-$("lightboxImg").addEventListener("pointermove",e=>{if(!dragging)return;lightboxX=e.clientX-dragStartX;lightboxY=e.clientY-dragStartY;applyLightboxTransform();});
-$("lightboxImg").addEventListener("pointerup",()=>dragging=false);
-$("closeLightbox").onclick=()=>{$("lightbox").classList.add("hidden");$("lightboxImg").src="";lightboxScale=1;lightboxX=0;lightboxY=0;};
+$("closeLightbox").onclick=()=>{$("lightbox").classList.add("hidden");$("lightboxImg").src=""};
 
 
 // ===== v3 UI wiring =====
