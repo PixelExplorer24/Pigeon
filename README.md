@@ -1,4 +1,4 @@
-# Fast Messenger Pro v3
+# Fast Messenger Pro v5
 
 This build is based on the latest friend-request-fixed v2 package.
 
@@ -14,8 +14,14 @@ Added:
 - Share App using Web Share API with clipboard fallback
 - Privacy Policy starter page
 - Reciprocal friend records when accepting requests
-- Keeps ImgBB image sending and GoFile file sending
+- Supports image and file sending through external upload services
 - Keeps the latest outgoing friend-request Pending fix
+- Multiple images and multiple files can be selected and sent in one message
+- Separate image and attachment buttons sit outside the composer on mobile
+- Responsive attachment queue stays inside the viewport
+- Account Management now contains the account deletion action in a collapsible folder
+- Removed technical upload-service names from visible UI text
+- Replaced unsupported navigation icon variants with broadly supported Font Awesome icons
 
 IMPORTANT:
 1. Set SUPPORT_EMAIL in assets/js/app.js before publishing.

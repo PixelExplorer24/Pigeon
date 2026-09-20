@@ -48,7 +48,7 @@
   <main class="main">
     <section id="homeView" class="view active">
       <div class="hero-head">
-        <div><span class="eyebrow">MESSENGER</span><h2>Your chats</h2><p id="chatSummary">Realtime conversations</p></div>
+        <div><h2>Your chats</h2><p id="chatSummary">Realtime conversations</p></div>
         <button id="refreshBtn" class="round-btn ghost"><i class="fa-solid fa-arrows-rotate"></i></button>
       </div>
       <div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input id="chatSearch" placeholder="চ্যাট বা মানুষ খুঁজুন..."><kbd>⌘ K</kbd></div>
@@ -56,7 +56,7 @@
     </section>
 
     <section id="peopleView" class="view">
-      <div class="hero-head"><div><span class="eyebrow">NETWORK</span><h2>People</h2><p>বন্ধু খুঁজুন ও নতুন conversation শুরু করুন</p></div></div>
+      <div class="hero-head"><div><h2>People</h2><p>বন্ধু খুঁজুন ও নতুন conversation শুরু করুন</p></div></div>
       <div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input id="peopleSearch" placeholder="নাম বা email দিয়ে খুঁজুন..."></div>
       <div class="people-tabs">
         <button class="pill active" data-people-tab="friends">Friends</button>
@@ -86,16 +86,22 @@
       <div class="settings-page">
         <div class="settings-head">
           <button class="round-btn ghost" id="settingsBack"><i class="fa-solid fa-arrow-left"></i></button>
-          <div><span class="eyebrow">CONTROL CENTER</span><h2>Settings</h2><p>অ্যাপের মূল কনফিগারেশন</p></div>
+          <div><h2>Settings</h2></div>
         </div>
 
         <div class="settings-section">
-          <h3>Account Management</h3>
-          <button class="settings-item danger-soft" id="deleteAccountBtn">
-            <span class="settings-icon red"><i class="fa-solid fa-user-slash"></i></span>
-            <span class="settings-copy"><b>অ্যাকাউন্ট ডিলিট</b><small>আপনার অ্যাপের প্রোফাইল, বন্ধু, request ও message data মুছে ফেলুন</small></span>
-            <i class="fa-solid fa-chevron-right"></i>
+          <button class="settings-item account-folder" id="accountManagementBtn" type="button" aria-expanded="false">
+            <span class="settings-icon blue"><i class="fa-solid fa-user-gear"></i></span>
+            <span class="settings-copy"><b>Account Management</b><small>অ্যাকাউন্ট সম্পর্কিত নিয়ন্ত্রণগুলো এখানে</small></span>
+            <i id="accountFolderChevron" class="fa-solid fa-chevron-down folder-chevron"></i>
           </button>
+          <div id="accountManagementPanel" class="account-folder-panel hidden">
+            <button class="settings-item danger-soft account-delete-item" id="deleteAccountBtn" type="button">
+              <span class="settings-icon red"><i class="fa-solid fa-user-slash"></i></span>
+              <span class="settings-copy"><b>অ্যাকাউন্ট ডিলিট</b><small>আপনার অ্যাপের প্রোফাইল, বন্ধু, request ও message data মুছে ফেলুন</small></span>
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
         </div>
 
         <div class="settings-section">
@@ -123,13 +129,18 @@
         </div>
 
         <div class="settings-section">
-          <h3>Support</h3>
+          <h3>About & Support</h3>
+          <button class="settings-item" id="aboutBtn">
+            <span class="settings-icon purple"><i class="fa-solid fa-circle-info"></i></span>
+            <span class="settings-copy"><b>আমাদের সম্পর্কে</b><small>অ্যাপ, ডেভেলপার ও আমাদের উদ্দেশ্য সম্পর্কে জানুন</small></span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
           <button class="settings-item" id="supportBtn">
             <span class="settings-icon cyan"><i class="fa-regular fa-life-ring"></i></span>
             <span class="settings-copy"><b>সাপোর্ট / মতামত</b><small>সমস্যা বা feedback সরাসরি support email-এ পাঠান</small></span>
             <i class="fa-solid fa-chevron-right"></i>
           </button>
-          <div class="support-note">Support email: <b id="supportEmailLabel">YOUR_SUPPORT_EMAIL@example.com</b></div>
+          <div class="support-note">Support email: <b id="supportEmailLabel">hkhshahdot24@gmail.com</b></div>
         </div>
       </div>
     </section>
@@ -137,10 +148,10 @@
 
   <nav class="bottom-nav">
     <button class="nav-item active" data-view="homeView"><i class="fa-regular fa-comments nav-outline"></i><i class="fa-solid fa-comments nav-filled"></i><span>Chats</span><b id="navChatBadge" class="nav-badge hidden">0</b></button>
-    <button class="nav-item" data-view="peopleView"><i class="fa-regular fa-user-group nav-outline"></i><i class="fa-solid fa-user-group nav-filled"></i><span>People</span><b id="navPeopleBadge" class="nav-badge hidden">0</b></button>
+    <button class="nav-item" data-view="peopleView"><i class="fa-solid fa-users nav-outline"></i><i class="fa-solid fa-users nav-filled"></i><span>People</span><b id="navPeopleBadge" class="nav-badge hidden">0</b></button>
     <button id="navFab" class="nav-fab" title="New chat"><span><i class="fa-solid fa-plus"></i></span></button>
     <button class="nav-item" data-view="profileView"><i class="fa-regular fa-user nav-outline"></i><i class="fa-solid fa-user nav-filled"></i><span>Profile</span></button>
-    <button class="nav-item" data-view="settingsView"><i class="fa-regular fa-gear nav-outline"></i><i class="fa-solid fa-gear nav-filled"></i><span>Settings</span></button>
+    <button class="nav-item" data-view="settingsView"><i class="fa-solid fa-gear nav-outline"></i><i class="fa-solid fa-gear nav-filled"></i><span>Settings</span></button>
   </nav>
 </div>
 
@@ -155,20 +166,19 @@
   <div id="typing" class="typing hidden"><span></span><span></span><span></span><em>typing...</em></div>
 
   <form id="composer" class="composer">
-    <div class="attach-wrap">
-      <button type="button" id="attachBtn" class="attach-btn" title="Attach"><i class="fa-solid fa-plus"></i></button>
-      <div id="attachMenu" class="attach-menu hidden">
-        <button type="button" id="pickImage"><span class="attach-icon image"><i class="fa-regular fa-image"></i></span><span><b>Photo</b><small>ImgBB image hosting</small></span></button>
-        <button type="button" id="pickFile"><span class="attach-icon file"><i class="fa-solid fa-file-arrow-up"></i></span><span><b>File</b><small>GoFile secure link</small></span></button>
+    <div id="uploadQueue" class="upload-queue hidden"></div>
+    <div class="composer-row">
+      <div class="media-actions" aria-label="Media attachments">
+        <button type="button" id="pickImage" class="media-btn image" title="ছবি নির্বাচন করুন" aria-label="ছবি নির্বাচন করুন"><i class="fa-regular fa-image"></i></button>
+        <button type="button" id="pickFile" class="media-btn file" title="ফাইল নির্বাচন করুন" aria-label="ফাইল নির্বাচন করুন"><i class="fa-solid fa-paperclip"></i></button>
+        <input id="imageInput" type="file" accept="image/*" multiple hidden>
+        <input id="fileInput" type="file" multiple hidden>
       </div>
-      <input id="imageInput" type="file" accept="image/*" multiple hidden>
-      <input id="fileInput" type="file" hidden>
+      <div class="compose-box">
+        <textarea id="messageInput" rows="1" maxlength="4000" placeholder="মেসেজ লিখুন..."></textarea>
+      </div>
+      <button class="send-btn" type="submit" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
     </div>
-    <div class="compose-box">
-      <div id="uploadQueue" class="upload-queue hidden"></div>
-      <textarea id="messageInput" rows="1" maxlength="4000" placeholder="মেসেজ লিখুন..."></textarea>
-    </div>
-    <button class="send-btn" type="submit"><i class="fa-solid fa-paper-plane"></i></button>
   </form>
 </section>
 
@@ -182,6 +192,25 @@
   <button class="menu-danger" data-menu-action="logout"><i class="fa-solid fa-right-from-bracket"></i><span>লগআউট</span></button>
 </div>
 
+<div id="aboutModal" class="modal hidden"><div class="modal-card policy-card about-card">
+  <button class="modal-close" data-close="aboutModal"><i class="fa-solid fa-xmark"></i></button>
+  <div class="policy-icon"><i class="fa-solid fa-circle-info"></i></div>
+  <h3>আমাদের সম্পর্কে</h3>
+  <div class="policy-scroll about-scroll">
+    <p>আমাদের এই মেসেজিং অ্যাপটি তৈরি করা হয়েছে মূলত <b>দ্রুত, নিরাপদ এবং বাধাহীন যোগাযোগের</b> কথা মাথায় রেখে। আমরা বিশ্বাস করি, ইন্টারনেট কানেকশন দুর্বল থাকলেও আপনার গুরুত্বপূর্ণ যোগাযোগ যেন থমকে না যায়। তাই আধুনিক প্রযুক্তির সমন্বয়ে অ্যাপটিকে করা হয়েছে <b>সুপার-ফাস্ট, ডেটা-সাশ্রয়ী এবং অত্যন্ত ইউজার-ফ্রেন্ডলি</b>।</p>
+    <h4>ডেভেলপার সম্পর্কে</h4>
+    <p>অ্যাপটির ডিজাইন, ডেভেলপমেন্ট এবং সার্বিক তত্ত্বাবধানে রয়েছি আমি, <b>শাহাদৎ</b>।</p>
+    <p>ব্যবহারকারীদের জন্য একটি সহজ, সুন্দর, নির্ভরযোগ্য ও প্রিমিয়াম চ্যাটিং অভিজ্ঞতা নিশ্চিত করাই আমার মূল লক্ষ্য। ব্যবহারকারীদের বাস্তব প্রয়োজন, মতামত এবং অভিজ্ঞতাকে গুরুত্ব দিয়ে অ্যাপটিকে ধারাবাহিকভাবে উন্নত করার চেষ্টা করছি।</p>
+    <hr>
+    <h4>সাহায্য ও পরামর্শ</h4>
+    <p>অ্যাপটি ব্যবহার করতে গিয়ে আপনি যদি কোনো সমস্যার সম্মুখীন হন, কিংবা অ্যাপটির উন্নতিতে আপনার কোনো মূল্যবান পরামর্শ থাকে, তাহলে নির্দ্বিধায় আমাদের সঙ্গে যোগাযোগ করতে পারেন।</p>
+    <p>আপনাদের যেকোনো <b>গঠনমূলক মতামত, পরামর্শ ও সমস্যার কথা</b> আমরা সাদরে গ্রহণ করি এবং যথাসম্ভব দ্রুত সমাধানের চেষ্টা করি।</p>
+    <div class="support-contact"><span>📧</span><div><small>ইমেইল</small><b>hkhshahdot24@gmail.com</b></div></div>
+    <p class="about-note"><b>বিঃদ্রঃ</b> ইমেইল করার সময় Subject লাইনে আপনার সমস্যাটি সংক্ষেপে উল্লেখ করলে বিষয়টি বুঝতে এবং দ্রুত সমাধান দিতে আমাদের সুবিধা হবে।</p>
+  </div>
+  <button id="aboutEmailBtn" class="primary-btn about-email-btn"><i class="fa-regular fa-envelope"></i> ইমেইল করুন</button>
+</div></div>
+
 <div id="privacyModal" class="modal hidden"><div class="modal-card policy-card">
   <button class="modal-close" data-close="privacyModal"><i class="fa-solid fa-xmark"></i></button>
   <div class="policy-icon"><i class="fa-solid fa-shield-halved"></i></div>
@@ -190,7 +219,7 @@
     <p><b>Google Sign-in data:</b> এই অ্যাপ Google OAuth-এর মাধ্যমে আপনার Google account থেকে সাধারণত নাম, email address এবং profile photo পায়।</p>
     <p><b>ব্যবহারের উদ্দেশ্য:</b> পরিচয় নিশ্চিত করা, প্রোফাইল দেখানো, বন্ধু/চ্যাটে সঠিক ব্যবহারকারী শনাক্ত করা এবং অ্যাপের realtime messaging চালাতে এই তথ্য ব্যবহার করা হয়।</p>
     <p><b>Messaging data:</b> আপনি পাঠানো message, image link এবং file sharing metadata অ্যাপের messaging database-এ সংরক্ষিত হতে পারে যাতে conversation realtime-এ দেখানো যায়।</p>
-    <p><b>Third-party services:</b> ছবি ImgBB এবং file GoFile-এ upload হতে পারে। এগুলো ব্যবহার করার আগে তাদের নিজস্ব privacy policy ও terms দেখে নিন।</p>
+    <p><b>মিডিয়া সেবা:</b> ছবি ও ফাইল সংরক্ষণের জন্য তৃতীয় পক্ষের upload service ব্যবহার হতে পারে। সংবেদনশীল তথ্য পাঠানোর আগে সতর্ক থাকুন।</p>
     <p><b>Account deletion:</b> Settings → Account Management থেকে আপনার app account ও app-stored data মুছে ফেলার অনুরোধ করতে পারবেন। Google account নিজে এই অ্যাপ থেকে মুছে ফেলা হয় না।</p>
     <p><b>নোট:</b> এই পেজটি অ্যাপের বর্তমান data flow ব্যাখ্যা করার জন্য একটি starter policy। production release-এর আগে আপনার support email, developer/company identity, retention period এবং applicable legal requirements অনুযায়ী এটিকে চূড়ান্ত করা উচিত।</p>
   </div>
