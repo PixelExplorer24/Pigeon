@@ -5,7 +5,9 @@ const ROOT=()=>db.collection("artifacts").doc(APP).collection("public").doc("dat
 const USERS=()=>ROOT().collection("users"),FRIENDS=()=>ROOT().collection("friends"),REQUESTS=()=>ROOT().collection("friendRequests"),MESSAGES=()=>ROOT().collection("messages"),GROUPS=()=>ROOT().collection("groups");
 const IMAGE_UPLOAD_KEY="1abc9f66636c45ace1d0952e080d153d";
 const FILE_UPLOAD_ENDPOINT="https://upload.gofile.io/uploadfile";
-let me=null,profile=null,users=[],friends=[],requests=[],sentRequests=[],groups=[],activeFriend=null,chatUnsubs=[],listUnsubs=[],typingUnsub=null,typingTimer=null,attachedImages=[],attachedFiles=[],messageMap=new Map(),peopleTab="friends";
+let me=null,profile=null,users=[],friends=[],requests=[],sentRequests=[],groups=[],activeFriend=null,chatUnsubs=[],listUnsubs=[],typingUnsub=null,typingTimer=null,attachedImages=[],attachedFiles=[],messageMap=new Map(),activeMessageMap=new Map(),peopleTab="friends";
+const CACHE_PREFIX="fm_cache_v10_";
+let authResolved=false;
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 const avatar=u=>u?.photoURL||"https://placehold.co/120x120/e5e7eb/64748b?text=U";
 const pair=(a,b)=>[a,b].sort().join("__");
@@ -15,7 +17,7 @@ function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");cle
 function isFriend(uid){return friends.some(f=>f.friendUid===uid)}
 function closeAllModals(){document.querySelectorAll(".modal").forEach(x=>x.classList.add("hidden"))}
 function showView(id){document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll(".nav-item").forEach(x=>x.classList.toggle("active",x.dataset.view===id))}
-function syncProfile(){if(!profile)return;const name=profile.displayName||me.displayName||me.email?.split("@")[0]||"User";$("headerAvatar").src=avatar(profile);$("profileAvatar").src=avatar(profile);$("profileName").textContent=name;$("profileEmail").textContent=profile.email||me.email||"";$("profileBio").textContent=profile.bio||"No bio added.";$("editName").value=name;$("editPhoto").value=profile.photoURL||"";$("editBio").value=profile.bio||""}
+function syncProfile(){if(!profile)return;try{saveLocal("profile",profile)}catch(_){}const name=profile.displayName||me.displayName||me.email?.split("@")[0]||"User";$("headerAvatar").src=avatar(profile);$("profileAvatar").src=avatar(profile);$("profileName").textContent=name;$("profileEmail").textContent=profile.email||me.email||"";$("profileBio").textContent=profile.bio||"No bio added.";$("editName").value=name;$("editPhoto").value=profile.photoURL||"";$("editBio").value=profile.bio||""}
 async function ensureUser(){const ref=USERS().doc(me.uid),snap=await ref.get();const base={uid:me.uid,displayName:me.displayName||me.email?.split("@")[0]||"User",email:me.email||"",photoURL:me.photoURL||null,lastSeen:firebase.firestore.FieldValue.serverTimestamp(),online:true};if(!snap.exists)await ref.set(base);else await ref.set({lastSeen:base.lastSeen,online:true},{merge:true});profile={...base,...(snap.exists?snap.data():{})};
   const googleName=me.displayName||profile.displayName||base.displayName;
   const googlePhoto=me.photoURL||profile.photoURL||null;
@@ -29,61 +31,48 @@ window.addEventListener("beforeunload",()=>{if(me)USERS().doc(me.uid).set({onlin
 function stopListeners(){listUnsubs.forEach(u=>u&&u());listUnsubs=[];closeChat()}
 function startListeners(){
   stopListeners();
-  listUnsubs.push(USERS().onSnapshot(s=>{users=s.docs.map(d=>({uid:d.id,...d.data()})).filter(x=>x.uid!==me.uid);renderPeople();renderGroups();renderChats()}));
-  listUnsubs.push(FRIENDS().where("ownerUid","==",me.uid).onSnapshot(s=>{friends=s.docs.map(d=>({id:d.id,...d.data()}));renderPeople();renderGroups();renderChats();updateStats()}));
-  listUnsubs.push(REQUESTS().where("receiverUid","==",me.uid).onSnapshot(s=>{requests=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");updateRequestBadge();renderPeople()}));
-  listUnsubs.push(REQUESTS().where("senderUid","==",me.uid).onSnapshot(s=>{sentRequests=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");renderPeople()}));
-  listUnsubs.push(GROUPS().where("memberUids","array-contains",me.uid).onSnapshot(s=>{groups=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));renderGroups();renderChats()}));
-  listUnsubs.push(MESSAGES().where("senderUid","==",me.uid).onSnapshot(()=>renderChats()));
-  listUnsubs.push(MESSAGES().where("receiverUid","==",me.uid).onSnapshot(()=>renderChats()));
-  listUnsubs.push(MESSAGES().where("groupMemberUids","array-contains",me.uid).onSnapshot(()=>renderChats(),()=>{}));
+  listUnsubs.push(USERS().onSnapshot(s=>{users=s.docs.map(d=>({uid:d.id,...d.data()})).filter(x=>x.uid!==me.uid);saveLocal("users",users);renderPeople();renderGroups();renderChats()}));
+  listUnsubs.push(FRIENDS().where("ownerUid","==",me.uid).onSnapshot(s=>{friends=s.docs.map(d=>({id:d.id,...d.data()}));saveLocal("friends",friends);renderPeople();renderGroups();renderChats();updateStats()}));
+  listUnsubs.push(REQUESTS().where("receiverUid","==",me.uid).onSnapshot(s=>{requests=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");saveLocal("requests",requests);updateRequestBadge();renderPeople()}));
+  listUnsubs.push(REQUESTS().where("senderUid","==",me.uid).onSnapshot(s=>{sentRequests=s.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending");saveLocal("sentRequests",sentRequests);renderPeople()}));
+  listUnsubs.push(GROUPS().where("memberUids","array-contains",me.uid).onSnapshot(s=>{groups=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));saveLocal("groups",groups);renderGroups();renderChats()}));
+  const mergeMessages=s=>{s.docChanges().forEach(ch=>{if(ch.type==="removed")messageMap.delete(ch.doc.id);else messageMap.set(ch.doc.id,{id:ch.doc.id,...ch.doc.data()})});cacheMessages();renderChats();updateStats();if(activeFriend)renderMessages()};
+  listUnsubs.push(MESSAGES().where("senderUid","==",me.uid).onSnapshot(mergeMessages));
+  listUnsubs.push(MESSAGES().where("receiverUid","==",me.uid).onSnapshot(mergeMessages));
+  listUnsubs.push(MESSAGES().where("groupMemberUids","array-contains",me.uid).onSnapshot(mergeMessages,()=>{}));
 }
-async function getLatestMessages(){
-  const [a,b]=await Promise.all([
-    MESSAGES().where("senderUid","==",me.uid).get(),
-    MESSAGES().where("receiverUid","==",me.uid).get()
-  ]);
-  messageMap.clear();
-  [...a.docs,...b.docs].forEach(d=>messageMap.set(d.id,{id:d.id,...d.data()}));
-  return [...messageMap.values()].sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
+function cacheKey(name){return CACHE_PREFIX+name+(me?"_"+me.uid:"")}
+function saveLocal(name,value){try{localStorage.setItem(cacheKey(name),JSON.stringify(value))}catch(_){}}
+function loadLocal(name,fallback){try{const raw=localStorage.getItem(cacheKey(name));return raw?JSON.parse(raw):fallback}catch(_){return fallback}}
+function hydrateLocalCache(){
+  if(!me)return;
+  const u=loadLocal("users",[]),f=loadLocal("friends",[]),r=loadLocal("requests",[]),sr=loadLocal("sentRequests",[]),g=loadLocal("groups",[]),m=loadLocal("messages",[]);
+  if(Array.isArray(u))users=u; if(Array.isArray(f))friends=f; if(Array.isArray(r))requests=r; if(Array.isArray(sr))sentRequests=sr; if(Array.isArray(g))groups=g;
+  messageMap=new Map((Array.isArray(m)?m:[]).map(x=>[x.id,x]));
+  renderPeople();renderGroups();renderChats();updateStats();
 }
-async function getLatestGroupMessages(){
-  if(!groups.length)return new Map();
-  const pairs=await Promise.all(groups.map(async g=>{
-    try{
-      const snap=await MESSAGES().where("groupId","==",g.id).get();
-      let latest=null;
-      snap.forEach(d=>{const m={id:d.id,...d.data()};if(!latest||(m.createdAt?.toMillis?.()||0)>(latest.createdAt?.toMillis?.()||0))latest=m});
-      return [g.id,latest];
-    }catch(e){console.warn("group latest",g.id,e);return [g.id,null]}
-  }));
-  return new Map(pairs);
-}
-async function renderChats(){
+function cacheMessages(){saveLocal("messages",[...messageMap.values()].slice(-800))}
+function renderChats(){
   if(!me)return;
   const q=($("chatSearch")?.value||"").trim().toLowerCase();
-  const all=await getLatestMessages();
-  const latestGroups=await getLatestGroupMessages();
+  const all=[...messageMap.values()].sort((a,b)=>(b.createdAt?.toMillis?.()||Number(b.createdAt)||0)-(a.createdAt?.toMillis?.()||Number(a.createdAt)||0));
   const by=new Map();
   for(const m of all){
+    if(m.groupId)continue;
     const uid=m.senderUid===me.uid?m.receiverUid:m.senderUid;
     if(uid&&!by.has(uid))by.set(uid,m);
   }
   let rows=[...by.entries()].map(([uid,m])=>({uid,m,u:users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid)||{uid,displayName:"User"}}));
   if(q)rows=rows.filter(r=>(r.u.displayName||"").toLowerCase().includes(q)||(r.u.email||"").toLowerCase().includes(q)||(r.m.text||"").toLowerCase().includes(q));
   const box=$("chatList");
-  const groupRows=groups
-    .filter(g=>!q||(g.name||"").toLowerCase().includes(q))
-    .map(g=>{
-      const m=latestGroups.get(g.id);
-      const preview=m?.text||((m?.imageUrls||[]).length?"📷 ছবি":m?.fileName?"📎 "+m.fileName:"নতুন গ্রুপ");
-      return `<button class="chat-item" onclick="openGroupChat('${esc(g.id)}')"><span class="group-chat-icon"><i class="fa-solid fa-user-group"></i></span><span class="item-copy"><strong>${esc(g.name||"Unnamed group")}</strong><small>${esc(preview)}</small></span><time class="item-meta">${m?time(m.createdAt):"Group"}</time></button>`;
-    }).join("");
+  const groupRows=groups.filter(g=>!q||(g.name||"").toLowerCase().includes(q)).map(g=>{
+    const m=[...messageMap.values()].filter(x=>x.groupId===g.id).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0))[0];
+    const preview=m?.text||((m?.imageUrls||[]).length?"📷 ছবি":m?.fileName?"📎 "+m.fileName:"নতুন গ্রুপ");
+    return `<button class="chat-item" onclick="openGroupChat('${esc(g.id)}')"><span class="group-chat-icon"><i class="fa-solid fa-user-group"></i></span><span class="item-copy"><strong>${esc(g.name||"Unnamed group")}</strong><small>${esc(preview)}</small></span><time class="item-meta">${m?time(m.createdAt):"Group"}</time></button>`;
+  }).join("");
   const personal=rows.map(r=>`<button class="chat-item" onclick="openChat('${esc(r.uid)}')"><img class="avatar" src="${esc(avatar(r.u))}"><span class="item-copy"><strong>${esc(r.u.displayName||r.u.email||"User")}</strong><small>${esc(r.m.text||((r.m.imageUrls||[]).length?"📷 Image":r.m.fileName?"📎 "+r.m.fileName:"Message"))}</small></span><time class="item-meta">${time(r.m.createdAt)}</time></button>`).join("");
-  const content=groupRows+personal;
-  box.innerHTML=content||`<div class="empty"><i class="fa-regular fa-comments" style="font-size:28px;display:block;margin-bottom:10px"></i>কোনো conversation নেই। People থেকে একজনকে বেছে নিয়ে chat শুরু করুন।</div>`;
+  box.innerHTML=groupRows+personal||`<div class="empty"><i class="fa-regular fa-comments" style="font-size:28px;display:block;margin-bottom:10px"></i>কোনো conversation নেই। People থেকে একজনকে বেছে নিয়ে chat শুরু করুন।</div>`;
 }
-function groupMemberUsers(g){return (g.memberUids||[]).map(uid=>uid===me?.uid?profile:users.find(u=>u.uid===uid)||friends.find(f=>f.friendUid===uid)).filter(Boolean)}
 function renderGroups(){const box=$("groupList");if(!box)return;const q=($("groupSearch")?.value||"").trim().toLowerCase();const rows=groups.filter(g=>!q||(g.name||"").toLowerCase().includes(q));box.innerHTML=rows.length?rows.map(g=>{const ms=groupMemberUsers(g).slice(0,4);return`<button class="chat-item" onclick="openGroupChat('${esc(g.id)}')"><span class="group-avatar-mini">${ms.map(u=>`<img src="${esc(avatar(u))}" alt="">`).join("")}</span><span class="item-copy"><strong>${esc(g.name||"Unnamed group")}</strong><small>${(g.memberUids||[]).length} জন সদস্য · ${esc((g.memberUids||[]).includes(me.uid)?"আপনি সদস্য":"")}</small></span><span class="item-meta"><i class="fa-solid fa-chevron-right"></i></span></button>`}).join(""):`<div class="empty"><i class="fa-solid fa-user-group" style="font-size:28px;display:block;margin-bottom:10px"></i>এখনও কোনো গ্রুপ নেই।<br>নতুন গ্রুপ তৈরি করে আপনার বন্ধুদের যোগ করুন।</div>`}
 function renderGroupPicker(){const box=$("groupFriendPicker"),count=$("groupMemberCount");if(!box)return;const fs=friends.map(f=>users.find(u=>u.uid===f.friendUid)||{uid:f.friendUid,displayName:"User",email:""});if(!fs.length){box.innerHTML='<div class="empty" style="padding:25px 10px;background:transparent;border:0">আগে অন্তত একজন বন্ধুকে Add করুন, তারপর গ্রুপ তৈরি করতে পারবেন।</div>';$("saveGroupBtn").disabled=true;return}box.innerHTML=fs.map(u=>`<label class="group-friend-row"><input type="checkbox" value="${esc(u.uid)}"><img src="${esc(avatar(u))}" alt=""><span class="item-copy"><strong>${esc(u.displayName||"User")}</strong><small>${esc(u.email||"")}</small></span></label>`).join("");const update=()=>{const n=box.querySelectorAll("input:checked").length;count.textContent=`${n} জন নির্বাচিত`;$("saveGroupBtn").disabled=n<1};box.querySelectorAll("input").forEach(x=>x.onchange=update);update()}
 function showGroupModal(){if(!me)return;$("groupNameInput").value="";$("groupModal").classList.remove("hidden");renderGroupPicker();setTimeout(()=>$("groupNameInput").focus(),50)}
@@ -118,23 +107,13 @@ async function acceptRequest(id,uid){
 }
 async function rejectRequest(id){try{const ref=REQUESTS().doc(id),snap=await ref.get();if(!snap.exists||snap.data()?.receiverUid!==me.uid)return toast("Request পাওয়া যায়নি");await ref.set({status:"rejected",respondedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});toast("Request declined")}catch(e){console.error(e);toast("কাজটি করা যায়নি")}}
 function updateRequestBadge(){const n=requests.length;["requestBadge","navPeopleBadge"].forEach(id=>{const e=$(id);e.textContent=n;e.classList.toggle("hidden",!n)})}
-async function updateStats(){if(!me)return;const msgs=await getLatestMessages();$("statChats").textContent=new Set(msgs.map(m=>m.senderUid===me.uid?m.receiverUid:m.senderUid)).size;$("statFriends").textContent=friends.length;$("statSent").textContent=msgs.filter(m=>m.senderUid===me.uid).length}
+function updateStats(){if(!me)return;const msgs=[...messageMap.values()];$("statChats").textContent=new Set(msgs.filter(m=>!m.groupId).map(m=>m.senderUid===me.uid?m.receiverUid:m.senderUid)).size;$("statFriends").textContent=friends.length;$("statSent").textContent=msgs.filter(m=>m.senderUid===me.uid).length}
 window.openUser=uid=>{const u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);if(!u)return;$("userModalAvatar").src=avatar(u);$("userModalName").textContent=u.displayName||"User";$("userModalEmail").textContent=u.email||"";$("userModalBio").textContent=u.bio||"No bio added.";$("userModalChat").onclick=()=>{closeAllModals();openChat(uid)};$("userModal").classList.remove("hidden")};
 
 function subscribeChat(uid){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];const ref=MESSAGES();if(activeFriend?.isGroup){chatUnsubs.push(ref.where("groupId","==",uid).onSnapshot(renderMessages));}else{chatUnsubs.push(ref.where("senderUid","==",me.uid).where("receiverUid","==",uid).onSnapshot(renderMessages));chatUnsubs.push(ref.where("senderUid","==",uid).where("receiverUid","==",me.uid).onSnapshot(renderMessages));}}
-async function renderMessages(){
+function renderMessages(){
   if(!activeFriend)return;
-  let arr=[];
-  if(activeFriend.isGroup){
-    const snap=await MESSAGES().where("groupId","==",activeFriend.uid).get();
-    arr=snap.docs.map(d=>({id:d.id,...d.data()})).sort((x,y)=>(x.createdAt?.toMillis?.()||0)-(y.createdAt?.toMillis?.()||0));
-  }else{
-    const[a,b]=await Promise.all([
-      MESSAGES().where("senderUid","==",me.uid).where("receiverUid","==",activeFriend.uid).get(),
-      MESSAGES().where("senderUid","==",activeFriend.uid).where("receiverUid","==",me.uid).get()
-    ]);
-    arr=[...a.docs,...b.docs].map(d=>({id:d.id,...d.data()})).sort((x,y)=>(x.createdAt?.toMillis?.()||0)-(y.createdAt?.toMillis?.()||0));
-  }
+  const arr=[...activeMessageMap.values()].sort((x,y)=>(x.createdAt?.toMillis?.()||Number(x.createdAt)||0)-(y.createdAt?.toMillis?.()||Number(y.createdAt)||0));
   const box=$("messages");
   const escUrl=u=>esc(u||"");
   box.innerHTML=arr.length?arr.map(m=>{
@@ -146,26 +125,34 @@ async function renderMessages(){
       ${activeFriend.isGroup&&!mine?`<div style="font-size:9px;font-weight:800;opacity:.7;margin-bottom:3px">${esc(users.find(u=>u.uid===m.senderUid)?.displayName||"Member")}</div>`:""}
       ${m.text?`<div>${esc(m.text).replace(/\n/g,"<br>")}</div>`:""}
       ${imgs.map(u=>`<img class="msg-img" src="${escUrl(u)}" onclick="showImage('${escUrl(u)}')">`).join("")}
-      ${uniqueFiles.map(f=>`<a class="file-card" href="${escUrl(f.downloadPage)}" target="_blank" rel="noopener">
-        <span class="file-icon"><i class="fa-solid fa-file-arrow-down"></i></span>
-        <span class="file-copy"><b>${esc(f.name||"Shared file")}</b><small>${esc(f.size?bytes(f.size):"File")}</small></span>
-        <i class="fa-solid fa-arrow-up-right-from-square file-download"></i>
-      </a>`).join("")}
-      <div class="msg-time">${time(m.createdAt)} ${mine?"✓":""}</div>
+      ${uniqueFiles.map(f=>`<a class="file-card" href="${escUrl(f.downloadPage)}" target="_blank" rel="noopener"><span class="file-icon"><i class="fa-solid fa-file-arrow-down"></i></span><span class="file-copy"><b>${esc(f.name||"Shared file")}</b><small>${esc(f.size?bytes(f.size):"File")}</small></span><i class="fa-solid fa-arrow-up-right-from-square file-download"></i></a>`).join("")}
+      <div class="msg-time">${time(m.createdAt)}</div>
     </div></div>`;
-  }).join(""):`<div class="empty" style="margin-top:30px">এখানে আপনার private conversation শুরু হবে।</div>`;
+  }).join(""):"<div class=\"empty\">কোনো message নেই।</div>";
   box.scrollTop=box.scrollHeight;
 }
-window.showImage=url=>{$("lightboxImg").src=url;$("lightbox").classList.remove("hidden")};
-function setChatHeader(u){$("chatName").textContent=u.isGroup?(u.name||"Group"):u.displayName||"User";$("chatAvatar").src=u.isGroup?"https://placehold.co/120x120/2563eb/ffffff?text=G":avatar(u);$("chatStatus").textContent=u.isGroup?`${(u.memberUids||[]).length} জন সদস্য`:(u.online?"online":`last seen ${time(u.lastSeen)}`);$("chatPresence").classList.toggle("online",!!u.online&&!u.isGroup)}
+function subscribeChat(uid){
+  chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];
+  activeMessageMap=new Map([...messageMap.values()].filter(m=>activeFriend?.isGroup?m.groupId===uid:((m.senderUid===me.uid&&m.receiverUid===uid)||(m.senderUid===uid&&m.receiverUid===me.uid))).map(m=>[m.id,m]));
+  renderMessages();
+  const ref=MESSAGES();
+  const mergeSnap=s=>{s.docs.forEach(d=>activeMessageMap.set(d.id,{id:d.id,...d.data()}));renderMessages();};
+  if(activeFriend?.isGroup){chatUnsubs.push(ref.where("groupId","==",uid).onSnapshot(mergeSnap));}
+  else{
+    chatUnsubs.push(ref.where("senderUid","==",me.uid).where("receiverUid","==",uid).onSnapshot(mergeSnap));
+    chatUnsubs.push(ref.where("senderUid","==",uid).where("receiverUid","==",me.uid).onSnapshot(mergeSnap));
+  }
+}
 async function openChat(uid){
+  currentConversationId=pair(me.uid,uid);
   await idbOpen();let u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);if(!u)return;activeFriend=u;setChatHeader(u);$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(uid);watchTyping();await renderMessages()}
 async function openGroupChat(groupId){
+  currentConversationId=groupId;
   const g=groups.find(x=>x.id===groupId);if(!g)return toast("গ্রুপ পাওয়া যায়নি");
   if(!(g.memberUids||[]).includes(me.uid))return toast("আপনি এই গ্রুপের সদস্য নন");
   await idbOpen();activeFriend={...g,uid:g.id,isGroup:true};setChatHeader(activeFriend);$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(groupId);watchTyping();await renderMessages()
 }
-function closeChat(){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];if(typingUnsub)typingUnsub();typingUnsub=null;activeFriend=null;$("chatPanel")?.classList.add("hidden");document.body.style.overflow="";attachedImages=[];attachedFiles=[];renderUploadQueue()}
+function closeChat(){currentConversationId=null;chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];if(typingUnsub)typingUnsub();typingUnsub=null;activeFriend=null;$("chatPanel")?.classList.add("hidden");document.body.style.overflow="";attachedImages=[];attachedFiles=[];renderUploadQueue()}
 function watchTyping(){if(typingUnsub)typingUnsub();if(!activeFriend||activeFriend.isGroup){$("typing").classList.add("hidden");return}typingUnsub=USERS().doc(activeFriend.uid).onSnapshot(s=>{$("typing").classList.toggle("hidden",(s.data()||{}).typingTo!==me.uid)})}
 
 async function uploadImage(file,onProgress){if(file.size>32*1024*1024)throw new Error("Image 32MB-এর বেশি হতে পারবে না");const fd=new FormData();fd.append("image",file);const r=await fetch(`https://api.imgbb.com/1/upload?key=${IMAGE_UPLOAD_KEY}`,{method:"POST",body:fd});const j=await r.json();if(!j.success)throw new Error("ছবি আপলোড করা যায়নি");if(onProgress)onProgress(100);return j.data.url}
@@ -309,7 +296,7 @@ async function renderLocalMessages(conversationId,limit=25,beforeMs=Infinity){
   return local;
 }
 function renderMessagesFromPlain(items){
-  const box=$("chatMessages");if(!box)return;
+  const box=$("messages");if(!box)return;
   if(!items.length){
     box.innerHTML='<div class="empty-state"><i class="fa-regular fa-comments"></i><b>No messages yet</b><span>Start the conversation.</span></div>';
     return;
@@ -321,7 +308,7 @@ async function loadOlderLocalMessages(){
   if(!currentConversationId||!oldestLoadedCreatedAt)return;
   const older=await idbMessages(currentConversationId,messagePageSize,oldestLoadedCreatedAt-1);
   if(!older.length){toast("No more local messages");return}
-  const box=$("chatMessages"),oldHeight=box.scrollHeight,oldTop=box.scrollTop;
+  const box=$("messages"),oldHeight=box.scrollHeight,oldTop=box.scrollTop;
   box.insertAdjacentHTML("afterbegin",older.map(m=>messageHTML(m)).join(""));
   oldestLoadedCreatedAt=older[0].createdAtMs;
   box.scrollTop=box.scrollHeight-oldHeight+oldTop;
@@ -355,10 +342,10 @@ function updateConnectivity(){
   if(!off)deltaSync();
 }
 function installPullToRefresh(){
-  const area=$("chatView")||document.body,indicator=$("pullRefresh");
+  const area=$("chatPanel")||document.body,indicator=$("pullRefresh");
   let startY=0,dist=0,tracking=false;
   area.addEventListener("touchstart",e=>{
-    const target=$("chatMessages");
+    const target=$("messages");
     if(target&&target.scrollTop<=0){startY=e.touches[0].clientY;tracking=true;dist=0}
   },{passive:true});
   area.addEventListener("touchmove",e=>{
@@ -382,7 +369,7 @@ function installPullToRefresh(){
   });
 }
 
-const SUPPORT_EMAIL="hkhshahdot24@gmail.com";
+const SUPPORT_EMAIL="hkshahadot24@gmail.com";
 const DEFAULT_APP_URL=window.location.href.split("#")[0];
 
 function syncMenu(){
@@ -469,14 +456,39 @@ function initPreferences(){
   applyNotifications(localStorage.getItem("fm_notifications")!=="off",false);
 }
 
-$("googleLogin").onclick=async()=>{const b=$("googleLogin");b.disabled=true;try{await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())}catch(e){console.error(e);$("loginError").textContent=e.message||"Login failed"}finally{b.disabled=false}};
-auth.onAuthStateChanged(async user=>{if(user){me=user;$("loginScreen").classList.add("hidden");$("app").classList.remove("hidden");await ensureUser();heartbeat();startListeners();syncProfile();syncMenu();watchIncomingNotifications()}else{$("app").classList.add("hidden");$("loginScreen").classList.remove("hidden")}});
+$("googleLogin").onclick=async()=>{const b=$("googleLogin");b.disabled=true;try{await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())}catch(e){console.error(e);$("loginError").textContent=e.message||"Login failed"}finally{b.disabled=false}};
+function showCachedShell(){
+  const cachedUid=localStorage.getItem("fm_session_uid");
+  if(!cachedUid)return false;
+  $("loginScreen").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  document.body.classList.remove("booting");
+  return true;
+}
+const hadCachedSession=showCachedShell();
+try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(_){}
+auth.onAuthStateChanged(async user=>{
+  authResolved=true;
+  if(user){
+    me=user;localStorage.setItem("fm_session_uid",user.uid);
+    $("loginScreen").classList.add("hidden");$("app").classList.remove("hidden");
+    document.body.classList.remove("booting");
+    profile=loadLocal("profile",{uid:user.uid,displayName:user.displayName||user.email?.split("@")[0]||"User",email:user.email||"",photoURL:user.photoURL||null,bio:"Fast Messenger profile"});
+    syncProfile();syncMenu();hydrateLocalCache();
+    heartbeat();startListeners();watchIncomingNotifications();
+    ensureUser().then(()=>saveLocal("profile",profile)).catch(e=>console.warn("profile sync delayed",e));
+  }else{
+    localStorage.removeItem("fm_session_uid");
+    me=null;profile=null;
+    $("app").classList.add("hidden");$("loginScreen").classList.remove("hidden");
+    document.body.classList.remove("booting");
+  }
+});
 
 document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>showView(b.dataset.view));
 document.querySelectorAll("[data-people-tab]").forEach(b=>b.onclick=()=>{peopleTab=b.dataset.peopleTab;document.querySelectorAll("[data-people-tab]").forEach(x=>x.classList.toggle("active",x===b));renderPeople()});
 $("peopleSearch").oninput=renderPeople;$("chatSearch").oninput=renderChats;$("groupSearch").oninput=renderGroups;$("createGroupBtn").onclick=showGroupModal;$("saveGroupBtn").onclick=createGroup;
 $("refreshBtn").onclick=()=>{renderChats();renderPeople();toast("Refreshed")};
-$("newChatBtn").onclick=()=>{showView("peopleView");peopleTab="all";document.querySelectorAll("[data-people-tab]").forEach(x=>x.classList.toggle("active",x.dataset.peopleTab==="all"));renderPeople();$("peopleSearch").focus()};
 $("backChat").onclick=closeChat;$("composer").onsubmit=sendMessage;
 $("messageInput").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";handleTyping()});
 $("pickImage").onclick=()=>$("imageInput").click();
@@ -515,7 +527,6 @@ document.querySelectorAll("[data-menu-action]").forEach(b=>b.onclick=async()=>{
 document.addEventListener("click",e=>{
   if(!$("moreMenu").contains(e.target)&&!$("menuBtn").contains(e.target))$("moreMenu").classList.add("hidden");
 });
-$("navFab").onclick=()=>{$("newChatBtn").click()};
 $("settingsBack").onclick=()=>showView("profileView");
 $("themeToggle").onchange=e=>applyTheme(e.target.checked);
 $("notificationToggle").onchange=e=>applyNotifications(e.target.checked);
@@ -555,8 +566,11 @@ document.addEventListener("DOMContentLoaded",async()=>{
   try{await idbOpen()}catch(e){console.warn("IndexedDB unavailable",e)}
   updateConnectivity();
   installPullToRefresh();
-  const box=$("chatMessages");
+  const box=$("messages");
   if(box)box.addEventListener("scroll",()=>{
-    if(box.scrollTop<90 && currentConversationId&&!syncInProgress)loadOlderLocalMessages();
+    if(box.scrollTop<90 && activeFriend&&!syncInProgress){
+      const conversationId=activeFriend.isGroup?activeFriend.uid:pair(me.uid,activeFriend.uid);
+      if(conversationId&&oldestLoadedCreatedAt)loadOlderLocalMessages();
+    }
   });
 });
