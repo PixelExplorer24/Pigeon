@@ -140,7 +140,7 @@
             <span class="settings-copy"><b>সাপোর্ট / মতামত</b><small>সমস্যা বা feedback সরাসরি support email-এ পাঠান</small></span>
             <i class="fa-solid fa-chevron-right"></i>
           </button>
-          <div class="support-note">Support email: <b id="supportEmailLabel">hkhshahdot24@gmail.com</b></div>
+          <div class="support-note">Support email: <b id="supportEmailLabel">hkshahadot24@gmail.com</b></div>
         </div>
       </div>
     </section>
@@ -205,7 +205,7 @@
     <h4>সাহায্য ও পরামর্শ</h4>
     <p>অ্যাপটি ব্যবহার করতে গিয়ে আপনি যদি কোনো সমস্যার সম্মুখীন হন, কিংবা অ্যাপটির উন্নতিতে আপনার কোনো মূল্যবান পরামর্শ থাকে, তাহলে নির্দ্বিধায় আমাদের সঙ্গে যোগাযোগ করতে পারেন।</p>
     <p>আপনাদের যেকোনো <b>গঠনমূলক মতামত, পরামর্শ ও সমস্যার কথা</b> আমরা সাদরে গ্রহণ করি এবং যথাসম্ভব দ্রুত সমাধানের চেষ্টা করি।</p>
-    <div class="support-contact"><span>📧</span><div><small>ইমেইল</small><b>hkhshahdot24@gmail.com</b></div></div>
+    <div class="support-contact"><span>📧</span><div><small>ইমেইল</small><b>hkshahadot24@gmail.com</b></div></div>
     <p class="about-note"><b>বিঃদ্রঃ</b> ইমেইল করার সময় Subject লাইনে আপনার সমস্যাটি সংক্ষেপে উল্লেখ করলে বিষয়টি বুঝতে এবং দ্রুত সমাধান দিতে আমাদের সুবিধা হবে।</p>
   </div>
   <button id="aboutEmailBtn" class="primary-btn about-email-btn"><i class="fa-regular fa-envelope"></i> ইমেইল করুন</button>
