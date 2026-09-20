@@ -91,8 +91,8 @@ async function acceptRequest(id,uid){
     const now=firebase.firestore.Timestamp.now();
     const p=pair(me.uid,uid);
     const batch=db.batch();
-    batch.set(FRIENDS().doc(p+"__"+me.uid),{pairId:p,ownerUid:me.uid,friendUid:uid,createdAt:now},{merge:true});
-    batch.set(FRIENDS().doc(p+"__"+uid),{pairId:p,ownerUid:uid,friendUid:me.uid,createdAt:now},{merge:true});
+    batch.set(FRIENDS().doc(p+"__"+me.uid),{pairId:p,ownerUid:me.uid,friendUid:uid,requestId:id,createdAt:now},{merge:true});
+    batch.set(FRIENDS().doc(p+"__"+uid),{pairId:p,ownerUid:uid,friendUid:me.uid,requestId:id,createdAt:now},{merge:true});
     batch.set(reqRef,{status:"accepted",respondedAt:now},{merge:true});
     await batch.commit();
     toast("Friend added");
