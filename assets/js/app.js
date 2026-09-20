@@ -899,7 +899,7 @@ window.filterUsers = function() {
                 const messages=[]; a.forEach(d=>messages.push({id:d.id,...d.data()})); b.forEach(d=>messages.push({id:d.id,...d.data()}));
                 messages.sort((x,y)=>{const tx=x.createdAt?.toMillis?x.createdAt.toMillis():(x.createdAt||0),ty=y.createdAt?.toMillis?y.createdAt.toMillis():(y.createdAt||0);return tx-ty;}); messageCache=messages;
                 const box=document.getElementById('friendMessageList'); if(!box)return;
-                box.innerHTML=messages.map(m=>{const mine=m.senderUid===currentUser.uid; const imgs=Array.isArray(m.imageUrls)?m.imageUrls:(m.imageUrl?[m.imageUrl]:[]); return `<div class="message-row ${mine?'mine':'theirs'}"><div class="message-bubble ${mine?'mine':'theirs'}">${m.text?`<div class="whitespace-pre-wrap break-words">${escapeHtmlSafe(m.text)}</div>`:''}${imgs.length?`<div class="chat-message-images">${imgs.map(u=>`<img src="${escapeHtmlSafe(u)}" alt="Shared image" loading="lazy" onclick="window.open(this.src,'_blank')">`).join('')}</div>`:''}${Array.isArray(m.fileAttachments)&&m.fileAttachments.length?`<div class="chat-file-list">${m.fileAttachments.map(f=>{const fileUrl=f.directLink||f.url||f.downloadPage||'';const fileName=f.name||'File';return `<div class="chat-file-card"><i class="fa-solid fa-file-lines"></i><span><strong>${escapeHtmlSafe(fileName)}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))}</small></span><button type="button" class="file-download-btn" title="Download file" aria-label="Download ${escapeHtmlSafe(fileName)}" onclick="downloadRemoteFile(decodeURIComponent('${encodeURIComponent(fileUrl)}'),decodeURIComponent('${encodeURIComponent(fileName)}'))"><i class="fa-solid fa-download"></i><span>Download</span></button></div>`}).join('')}</div>`:''}<div class="message-meta"><span>${escapeHtmlSafe(formatMessageTime(m.createdAt))}</span>${mine?`<button type="button" onclick="deleteDirectMessage('${m.id}')" class="message-delete">Delete</button>`:''}</div></div></div>`}).join('')||'<div style="text-align:center;color:#aab7c4;font-size:12px;padding:32px 8px">No messages yet. Start the private conversation.</div>';
+                box.innerHTML=messages.map(m=>{const mine=m.senderUid===currentUser.uid; const imgs=Array.isArray(m.imageUrls)?m.imageUrls:(m.imageUrl?[m.imageUrl]:[]); return `<div class="message-row ${mine?'mine':'theirs'}"><div class="message-bubble ${mine?'mine':'theirs'}">${m.text?`<div class="whitespace-pre-wrap break-words">${escapeHtmlSafe(m.text)}</div>`:''}${imgs.length?`<div class="chat-message-images">${imgs.map(u=>`<img src="${escapeHtmlSafe(u)}" alt="Shared image" loading="lazy" onclick="window.open(this.src,'_blank')">`).join('')}</div>`:''}${Array.isArray(m.fileAttachments)&&m.fileAttachments.length?`<div class="chat-file-list">${m.fileAttachments.map(f=>{const fileUrl=f.directLink||f.url||f.downloadPage||'';const fileName=f.name||'File';return `<div class="chat-file-card"><i class="fa-solid fa-file-lines"></i><span><strong>${escapeHtmlSafe(fileName)}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))}</small></span><button type="button" class="file-download-btn" title="Download file" aria-label="Download ${escapeHtmlSafe(fileName)}" data-download-key="letter-${encodeURIComponent(fileName)}" onclick="downloadStoredGoFileByValues('${encodeURIComponent(f.fileId||'')}','${encodeURIComponent(f.directLink||f.url||'')}','${encodeURIComponent(fileName)}')"><i class="fa-solid fa-download"></i><span>Download</span></button></div>`}).join('')}</div>`:''}<div class="message-meta"><span>${escapeHtmlSafe(formatMessageTime(m.createdAt))}</span>${mine?`<button type="button" onclick="deleteDirectMessage('${m.id}')" class="message-delete">Delete</button>`:''}</div></div></div>`}).join('')||'<div style="text-align:center;color:#aab7c4;font-size:12px;padding:32px 8px">No messages yet. Start the private conversation.</div>';
                 box.scrollTop=box.scrollHeight;
             };
             unsubscribeMessagesA=msgRef.where('senderUid','==',currentUser.uid).where('receiverUid','==',uid).onSnapshot(render,console.error);
@@ -1188,6 +1188,8 @@ window.filterUsers = function() {
         let pigeonAnimationFrame = null;
         let lastTelemetryPaint = 0;
         let lastFollowCenter = 0;
+        let trackingFollowEnabled = false;
+        let lastCameraSync = 0;
 
         // Fetch / Refresh Pigeons
         function fetchPigeonsList() {
@@ -1386,7 +1388,77 @@ let selectedFileBlobs = [];
         function clearImageAttachment() { selectedFileBlobs=[]; renderAttachmentList(); }
         window.clearImageAttachment=clearImageAttachment;
 
-// Download a stored attachment directly to the device. The GoFile download page is never opened.\n        // Browsers choose the user's configured Downloads location; a web page cannot force a custom system folder.\n        window.downloadRemoteFile = async function(url, fileName) {\n            if (!url || url === '#') { alert('This file does not have a direct download link.'); return; }\n            const safeName = fileName || 'download';\n            try {\n                const response = await fetch(url, { mode: 'cors', credentials: 'omit' });\n                if (!response.ok) throw new Error(`Download failed (${response.status})`);\n                const blob = await response.blob();\n                const blobUrl = URL.createObjectURL(blob);\n                const a = document.createElement('a');\n                a.href = blobUrl;\n                a.download = safeName;\n                a.style.display = 'none';\n                document.body.appendChild(a);\n                a.click();\n                a.remove();\n                setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);\n            } catch (err) {\n                console.warn('Direct blob download unavailable; using direct file URL:', err);\n                // Fallback still goes to the direct file URL, not the GoFile download page.\n                const a = document.createElement('a');\n                a.href = url;\n                a.download = safeName;\n                a.target = '_blank';\n                a.rel = 'noopener';\n                document.body.appendChild(a);\n                a.click();\n                a.remove();\n            }\n        };\n\n        // Production ImgBB Upload with hardcoded API key
+// Download a stored attachment directly to the device. The GoFile download page is never opened.
+        // Browsers choose the user's configured Downloads location; a web page cannot force a custom system folder.\n        // Direct GoFile download support. This never opens the GoFile download page.
+        async function createGoFileDirectLink(fileId) {
+            if (!fileId) throw new Error('This file has no GoFile file ID.');
+            const response = await fetch(`https://api.gofile.io/contents/${encodeURIComponent(fileId)}/directlinks`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${GOFILE_API_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            let json = {};
+            try { json = await response.json(); } catch (_) {}
+            if (!response.ok || json.status !== 'ok' || !json.data?.directLink) {
+                const msg = json.message || (response.status === 403 ? 'GoFile direct links are not enabled for this account.' : `Direct link creation failed (${response.status})`);
+                throw new Error(msg);
+            }
+            return json.data.directLink;
+        }
+
+        window.downloadStoredGoFile = async function(fileJson) {
+            let f = fileJson || {};
+            let directUrl = f.directLink || '';
+            const fileName = f.name || 'download';
+            const btn = document.querySelector(`[data-download-key="${CSS.escape(f._downloadKey || '')}"]`);
+            if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+            try {
+                if (!directUrl && f.fileId) {
+                    directUrl = await createGoFileDirectLink(f.fileId);
+                }
+                if (!directUrl) throw new Error('This file has no direct download link.');
+                // A direct-link response from GoFile is a file endpoint, not the GoFile download page.
+                const a = document.createElement('a');
+                a.href = directUrl;
+                a.download = fileName;
+                a.rel = 'noopener';
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } catch (err) {
+                console.error('GoFile direct download error:', err);
+                alert(`ডাউনলোড করা যাচ্ছে না। ${err.message || 'অনুগ্রহ করে আবার চেষ্টা করুন।'}`);
+            } finally {
+                if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+            }
+        };
+
+        window.downloadStoredGoFileByValues = function(fileId, directLink, fileName) {
+            return downloadStoredGoFile({
+                fileId: decodeURIComponent(fileId || ''),
+                directLink: decodeURIComponent(directLink || ''),
+                name: decodeURIComponent(fileName || '')
+            });
+        };
+
+        // Backward-compatible helper for older records that already contain a directLink.
+        window.downloadRemoteFile = async function(url, fileName) {
+            if (!url || url === '#') { alert('এই ফাইলের সরাসরি ডাউনলোড লিংক নেই।'); return; }
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName || 'download';
+            a.rel = 'noopener';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        };
+
+        // Production ImgBB Upload with hardcoded API key
         async function uploadToImgBB(file) {
             const userApiKey = "1abc9f66636c45ace1d0952e080d153d"; 
             
@@ -1427,9 +1499,85 @@ let selectedFileBlobs = [];
             let json = {}; try { json = await response.json(); } catch (_) {}
             if (!response.ok || json.status !== 'ok') throw new Error(json.message || `GoFile upload failed (${response.status})`);
             const d = json.data || {};
-            return { name:file.name, size:file.size, type:file.type || 'application/octet-stream', fileId:d.fileId || d.id || '', downloadPage:d.downloadPage || d.downloadPageUrl || '', directLink:d.directLink || d.link || '', url:d.directLink || d.downloadPage || '' };
+            const fileId = d.fileId || d.id || d.contentId || '';
+            let directLink = d.directLink || '';
+            if (!directLink && fileId) {
+                try { directLink = await createGoFileDirectLink(fileId); } catch (e) { console.warn('GoFile direct link unavailable:', e); }
+            }
+            return { name:file.name, size:file.size, type:file.type || 'application/octet-stream', fileId, downloadPage:d.downloadPage || d.downloadPageUrl || '', directLink, url:directLink || '' };
         }
         function formatBytes(bytes){ const n=Number(bytes)||0; if(n<1024)return `${n} B`; if(n<1048576)return `${(n/1024).toFixed(1)} KB`; if(n<1073741824)return `${(n/1048576).toFixed(1)} MB`; return `${(n/1073741824).toFixed(2)} GB`; }
+
+        // Local-only remote sender demo. It creates no Firestore record and does not alter real letters.
+        // The demo starts far away and flies in a perfectly straight line to the current user's location.
+        window.startRemoteSenderDemo = function() {
+            const status = document.getElementById('remoteDemoStatus');
+            const receiver = currentUserProfile?.coords || {
+                lat: Number(document.getElementById('receiverLat')?.value) || 23.8103,
+                lng: Number(document.getElementById('receiverLng')?.value) || 90.4125
+            };
+            if (!Number.isFinite(Number(receiver.lat)) || !Number.isFinite(Number(receiver.lng))) {
+                alert('আপনার বর্তমান/সেভ করা অবস্থান পাওয়া যায়নি। আগে Location permission দিন।');
+                return;
+            }
+
+            // Approx. 250–300 km away, bearing toward the receiver. This is only a visual test origin.
+            const receiverLat = Number(receiver.lat);
+            const receiverLng = Number(receiver.lng);
+            const senderLat = receiverLat + 2.15;
+            const senderLng = receiverLng - 1.25;
+            const senderCoords = { lat: senderLat, lng: senderLng };
+            const receiverCoords = { lat: receiverLat, lng: receiverLng };
+            const distanceKm = haversineDistance(senderCoords, receiverCoords);
+            const demoDurationSeconds = 90;
+            const dispatchTime = Date.now();
+            const demoId = `remote-demo-${dispatchTime}`;
+
+            // Remove an older local demo so repeated tests never stack multiple demo pigeons.
+            window.pigeonsList = (window.pigeonsList || []).filter(p => !p.demoRemoteSender);
+            const demo = {
+                id: demoId,
+                demoRemoteSender: true,
+                demo: true,
+                senderUid: 'remote-demo-sender',
+                receiverUid: currentUser?.uid || 'demo-receiver',
+                senderName: 'Remote Demo Sender',
+                receiverName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'You',
+                senderCoords,
+                receiverCoords,
+                distanceKm,
+                pigeonSpeedKmh: Math.round(distanceKm / (demoDurationSeconds / 3600)),
+                demoDurationSeconds,
+                flightDurationSeconds: demoDurationSeconds,
+                dispatchTime,
+                estimatedArrival: dispatchTime + demoDurationSeconds * 1000,
+                status: 'in_flight',
+                direction: 'incoming',
+                subject: 'Remote Sender Tracking Test'
+            };
+
+            window.pigeonsList = [demo, ...(window.pigeonsList || [])];
+            activePigeonId = demoId;
+            trackingFollowEnabled = true;
+            lastCameraSync = 0;
+            renderNestInbox(window.pigeonsList);
+            updateProfileStats();
+            renderActivityList();
+            playSound('release');
+            if (status) status.textContent = `Demo active • ${Math.round(distanceKm)} km away`;
+
+            switchTab('map');
+            setTimeout(() => {
+                if (leafletMap && typeof leafletMap.resize === 'function') leafletMap.resize();
+                updateMapTelemetry();
+                const active = window.pigeonsList.find(p => p.id === demoId);
+                if (active) {
+                    trackingFollowEnabled = true;
+                    const state = getAnimatedPigeonState(active, Date.now());
+                    if (state) updatePigeonTrackingCamera(active, state, performance.now());
+                }
+            }, 220);
+        };
 
         async function releasePigeon() {
             if (!currentUser || currentUser.isAnonymous || !currentUser.email) { alert('Please sign in with your Gmail/Google account first.'); return; }
@@ -1509,9 +1657,7 @@ let selectedFileBlobs = [];
         async function loadRoadRoute(pigeon) {
             if (!pigeon?.senderCoords || !pigeon?.receiverCoords || !leafletMap) return;
 
-            // Flight path is intentionally NOT road-based.
-            // A carrier pigeon flies in a direct great-circle/straight-line path
-            // between the saved sender and receiver coordinates.
+            // DIRECT AIR FLIGHT ONLY — no roads, routing engines or road geometry.
             const key = getRoadRouteKey(pigeon);
             if (key === roadRouteKey && roadRouteCoordinates.length > 1) {
                 updateRoadRouteLine(pigeon);
@@ -1525,13 +1671,6 @@ let selectedFileBlobs = [];
             roadRouteKey = key;
             updateRoadRouteLine(pigeon);
 
-            if (activePigeonId === pigeon.id) {
-                const bounds = new mapboxgl.LngLatBounds(
-                    roadRouteCoordinates[0],
-                    roadRouteCoordinates[0]
-                ).extend(roadRouteCoordinates[1]);
-                leafletMap.fitBounds(bounds, { padding: 90, maxZoom: 14, duration: 900 });
-            }
         }
 
         function updateRoadRouteLine(pigeon) {
@@ -1615,8 +1754,8 @@ let selectedFileBlobs = [];
                     container: 'leafletMap',
                     style: 'mapbox://styles/mapbox/standard',
                     center: [90.4125, 23.8103],
-                    zoom: 11,
-                    pitch: 85,
+                    zoom: 15.8,
+                    pitch: 0,
                     antialias: true,
                     attributionControl: true,
                     projection: 'globe'
@@ -1647,7 +1786,7 @@ let selectedFileBlobs = [];
 
             const pigeonIcon = createMapboxMarkerElement(
                 `<div id="pigeonIconContainer" class="pigeon-photo-marker" title="Cine Pigeon in flight"
-                    style="width:230px;height:175px;position:relative;pointer-events:none;display:flex;align-items:center;justify-content:center;">
+                    style="width:320px;height:240px;position:relative;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:visible;">
                     <model-viewer
                         id="cinePigeonModel"
                         src="./assets/models/Cine_Pigeon_fly.glb"
@@ -1661,11 +1800,11 @@ let selectedFileBlobs = [];
                         environment-image="neutral"
                         camera-orbit="0deg 72deg 2.7m"
                         field-of-view="28deg"
-                        style="width:230px;height:175px;background:transparent;pointer-events:none;--poster-color:transparent;">
+                        style="width:320px;height:240px;background:transparent;pointer-events:none;--poster-color:transparent;transform:scale(1.18);transform-origin:center center;">
                     </model-viewer>
                     <div class="pigeon-flight-trail" style="position:absolute;left:50%;bottom:5px;transform:translateX(-50%);"></div>
                 </div>`,
-                230, 175
+                320, 240
             );
             pigeon3DMarkerEl = pigeonIcon.querySelector('#pigeonIconContainer');
             if (pigeon3DMarkerEl) {
@@ -1688,7 +1827,7 @@ let selectedFileBlobs = [];
                 const updatePigeonZoomScale = () => {
                     if (!pigeon3DMarkerEl || !leafletMap) return;
                     const zoom = leafletMap.getZoom();
-                    const scale = Math.max(0.34, Math.min(2.10, Math.pow(1.16, zoom - 11)));
+                    const scale = Math.max(0.72, Math.min(1.45, Math.pow(1.08, zoom - 15)));
                     pigeon3DMarkerEl.dataset.zoomScale = scale.toFixed(3);
                     applyPigeonVisualTransform();
                 };
@@ -1725,9 +1864,9 @@ let selectedFileBlobs = [];
                         type: 'line',
                         source: 'pigeon-route',
                         paint: {
-                            'line-color': '#8b1e1e',
-                            'line-width': 4,
-                            'line-opacity': 0.88,
+                            'line-color': '#d6a84f',
+                            'line-width': 3,
+                            'line-opacity': 0.92,
                             'line-gap-width': 0,
                             'line-dasharray': [1.5, 1.5]
                         }
@@ -1765,14 +1904,15 @@ let selectedFileBlobs = [];
 
         function getAnimatedPigeonState(pigeon, now = Date.now()) {
             if (!pigeon) return null;
-            const totalDurationSec = Math.max(1, (Number(pigeon.distanceKm) || 0) / (Number(pigeon.pigeonSpeedKmh) || pigeonSpeedSetting) * 3600);
+            const totalDurationSec = Number(pigeon.demoDurationSeconds) > 0
+                ? Number(pigeon.demoDurationSeconds)
+                : Math.max(1, (Number(pigeon.distanceKm) || 0) / (Number(pigeon.pigeonSpeedKmh) || pigeonSpeedSetting) * 3600);
             const elapsedSec = Math.max(0, (now - Number(pigeon.dispatchTime || now)) / 1000);
             const progressFraction = Math.min(1, elapsedSec / totalDurationSec);
-            const roadPoint = getRoadPointAtFraction(progressFraction);
-            const currentPos = roadPoint
-                ? { lat: roadPoint.lat, lng: roadPoint.lng }
-                : interpolateCoords(pigeon.senderCoords, pigeon.receiverCoords, progressFraction);
-            const bearing = roadPoint ? roadPoint.bearing : calculateBearing(currentPos, pigeon.receiverCoords);
+            const currentPos = interpolateCoords(pigeon.senderCoords, pigeon.receiverCoords, progressFraction);
+            // Pigeons never use roads. Their flight position is always a direct
+            // sender -> receiver interpolation, with a single straight flight bearing.
+            const bearing = calculateBearing(pigeon.senderCoords, pigeon.receiverCoords);
             return {
                 elapsedSec,
                 progressFraction,
@@ -1788,30 +1928,33 @@ let selectedFileBlobs = [];
         let trackingCameraBusy = false;
 
         function updatePigeonTrackingCamera(pigeon, state, now = performance.now()) {
-            if (!leafletMap || !pigeon || !state || state.delivered) return;
-            // Keep the cinematic camera directly above the flying pigeon.
-            // Sender: camera looks in the flight direction, so the pigeon appears
-            // to leave the sender. Receiver: camera is reversed, so the pigeon
-            // visually approaches the receiver.
-            if (now - lastTrackingCameraUpdate < 450 || trackingCameraBusy) return;
+            if (!leafletMap || !pigeon || !state || !trackingFollowEnabled) return;
+            // TRUE LIVE FOLLOW: the map camera is locked to the flying pigeon.
+            // Pitch 0 means the camera looks straight down from directly above.
+            // Outgoing view keeps flight direction at the top of the screen;
+            // incoming view reverses it so the pigeon appears to approach the receiver.
+            if (now - lastCameraSync < 45) return;
 
-            const baseBearing = Number(state.bearing || 0);
+            const baseBearing = Number(state.bearing || calculateBearing(pigeon.senderCoords, pigeon.receiverCoords));
             const cameraBearing = pigeon.direction === 'incoming'
                 ? (baseBearing + 180) % 360
                 : baseBearing;
-
             const current = [state.currentPos.lng, state.currentPos.lat];
-            trackingCameraBusy = true;
-            leafletMap.easeTo({
-                center: current,
-                bearing: cameraBearing,
-                pitch: 78,
-                zoom: Math.max(12.5, Math.min(16.5, leafletMap.getZoom() || 14)),
-                duration: 420,
-                easing: t => t
-            });
-            setTimeout(() => { trackingCameraBusy = false; }, 440);
-            lastTrackingCameraUpdate = now;
+            const targetZoom = Math.max(15.2, Math.min(17.2, leafletMap.getZoom() || 16.2));
+
+            try {
+                leafletMap.jumpTo({
+                    center: current,
+                    bearing: cameraBearing,
+                    pitch: 0,
+                    zoom: targetZoom
+                });
+            } catch (e) {
+                leafletMap.setCenter(current);
+                leafletMap.setBearing(cameraBearing);
+                leafletMap.setPitch(0);
+            }
+            lastCameraSync = now;
         }
 
         function paintPigeonFrame(now = performance.now()) {
@@ -1871,7 +2014,7 @@ let selectedFileBlobs = [];
             document.getElementById('trackerPigeonTitle').innerText = `Flight of Epistle: ${pigeon.senderName} ➔ ${pigeon.receiverName}`;
             document.getElementById('trackerPigeonSub').innerText = `Distance: ${Number(pigeon.distanceKm || 0).toFixed(1)} km | Speed: ${pigeon.pigeonSpeedKmh} km/h`;
 
-            loadRoadRoute(pigeon);
+            updateRoadRouteLine(pigeon);
             startPigeonAnimation();
         }
 
@@ -2073,7 +2216,9 @@ let selectedFileBlobs = [];
             }
 
             try {
-                const letter = await window.dbGetLetter(pigeonId);
+                const letter = pigeon.demoRemoteSender
+                    ? { content: 'এটি একটি পরীক্ষামূলক Remote Sender চিঠি। Tracking, সরল flight line এবং live camera follow পরীক্ষা করার জন্য তৈরি করা হয়েছে.', subject: 'Remote Sender Tracking Test', imageUrls: [], imageUrl: '', fileAttachments: [] }
+                    : await window.dbGetLetter(pigeonId);
                 playSound('unseal');
 
                 document.getElementById('modalSender').innerText = pigeon.senderName || 'Unknown sender';
@@ -2085,7 +2230,7 @@ let selectedFileBlobs = [];
                 const modalGrid=document.getElementById('modalImagesGrid');
                 const imageList=Array.isArray(letter.imageUrls)&&letter.imageUrls.length ? letter.imageUrls : (letter.imageUrl?[letter.imageUrl]:[]);
                 if(modalGrid) modalGrid.innerHTML=imageList.map(url=>`<img src="${escapeHtmlSafe(url)}" alt="Attachment" class="w-full h-40 object-cover rounded-lg border border-parchment-300" loading="lazy">`).join('');
-                const modalFiles=Array.isArray(letter.fileAttachments)?letter.fileAttachments:[]; const modalFileBox=document.getElementById('modalFilesGrid'); if(modalFileBox) modalFileBox.innerHTML=modalFiles.map(f=>{const fileUrl=f.directLink||f.url||f.downloadPage||'';const fileName=f.name||'File';return `<div class="letter-file-card"><i class="fa-solid fa-file-lines"></i><span><strong>${escapeHtmlSafe(fileName)}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))} • ${escapeHtmlSafe(f.type||'')}</small></span><button type="button" class="file-download-btn" title="Download file" aria-label="Download ${escapeHtmlSafe(fileName)}" onclick="downloadRemoteFile(decodeURIComponent('${encodeURIComponent(fileUrl)}'),decodeURIComponent('${encodeURIComponent(fileName)}'))"><i class="fa-solid fa-download"></i><span>Download</span></button></div>`}).join('');
+                const modalFiles=Array.isArray(letter.fileAttachments)?letter.fileAttachments:[]; const modalFileBox=document.getElementById('modalFilesGrid'); if(modalFileBox) modalFileBox.innerHTML=modalFiles.map(f=>{const fileUrl=f.directLink||f.url||f.downloadPage||'';const fileName=f.name||'File';return `<div class="letter-file-card"><i class="fa-solid fa-file-lines"></i><span><strong>${escapeHtmlSafe(fileName)}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))} • ${escapeHtmlSafe(f.type||'')}</small></span><button type="button" class="file-download-btn" title="Download file" aria-label="Download ${escapeHtmlSafe(fileName)}" data-download-key="letter-${encodeURIComponent(fileName)}" onclick="downloadStoredGoFileByValues('${encodeURIComponent(f.fileId||'')}','${encodeURIComponent(f.directLink||f.url||'')}','${encodeURIComponent(fileName)}')"><i class="fa-solid fa-download"></i><span>Download</span></button></div>`}).join('');
                 document.getElementById('modalDistance').innerText = `${Number(pigeon.distanceKm || 0).toFixed(1)} km`;
                 document.getElementById('modalSpeed').innerText = `${pigeon.pigeonSpeedKmh} km/h`;
                 document.getElementById('modalDispatchTime').innerText =
@@ -2291,23 +2436,20 @@ let selectedFileBlobs = [];
             activePigeonId = pigeonId;
             roadRouteCoordinates = [];
             roadRouteKey = '';
+            trackingFollowEnabled = true;
+            lastCameraSync = 0;
             switchTab('map');
 
-            // Once the Map tab is visible and Mapbox has resized, move the camera
-            // directly to the flying pigeon's current location. This is NOT a
-            // continuous follow: the user can freely move the map afterwards.
+            // Start a true locked camera follow. The camera stays directly above
+            // the pigeon and updates continuously as the pigeon moves.
             const focus = () => {
                 if (!leafletMap) return;
                 if (typeof leafletMap.resize === 'function') leafletMap.resize();
-                focusMapOnTrackedPigeon(pigeonId);
+                const state = getAnimatedPigeonState(pigeon, Date.now());
+                if (state) updatePigeonTrackingCamera(pigeon, state, performance.now());
             };
-
-            // switchTab initializes the map when necessary, so wait for the next
-            // frame and then focus. A second pass handles the first Mapbox render.
-            requestAnimationFrame(() => {
-                focus();
-                setTimeout(focus, 180);
-            });
+            requestAnimationFrame(focus);
+            setTimeout(focus, 180);
         }
 
         function switchTab(tabName) {
@@ -2336,6 +2478,10 @@ let selectedFileBlobs = [];
                 setTimeout(() => {
                     if (leafletMap && typeof leafletMap.resize === 'function') leafletMap.resize();
                     updateMapTelemetry();
+                    if (activePigeonId) {
+                        const active = window.pigeonsList?.find(p => p.id === activePigeonId);
+                        if (active) trackingFollowEnabled = true;
+                    }
                 }, 100);
             }
 
