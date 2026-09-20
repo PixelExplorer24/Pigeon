@@ -1,49 +1,223 @@
 <!doctype html>
 <html lang="bn">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f172a"><meta name="application-version" content="fast-messenger-v1">
-<title>Fast Messenger</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>Fast Messenger Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="./assets/css/app.css?v=1">
+<link rel="stylesheet" href="./assets/css/app.css?v=4">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<div id="offlineBar" class="offline-bar hidden"><i class="fa-solid fa-wifi"></i><span>Offline mode — saved chats are available</span></div>
+<div id="syncBar" class="sync-bar hidden"><i class="fa-solid fa-rotate"></i><span id="syncText">Syncing…</span></div>
+<div id="pullRefresh" class="pull-refresh"><i class="fa-solid fa-arrow-down"></i><span>Pull to refresh</span></div>
 <div id="toast" class="toast"></div>
-<div id="loginScreen" class="login-screen hidden">
-  <div class="login-card"><div class="brand-mark"><i class="fa-solid fa-paper-plane"></i></div><h1>Fast Messenger</h1><p>দ্রুত, realtime এবং private messaging.</p><button id="googleLogin" class="google-btn"><i class="fa-brands fa-google"></i> Google দিয়ে শুরু করুন</button><small id="loginError"></small></div>
-</div>
+
+<section id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="logo-orbit"><i class="fa-solid fa-paper-plane"></i></div>
+    <h1>Fast Messenger</h1>
+    <p>দ্রুত, realtime এবং media-ready private messaging.</p>
+    <button id="googleLogin" class="google-btn"><i class="fa-brands fa-google"></i><span>Google দিয়ে শুরু করুন</span></button>
+    <small id="loginError"></small>
+  </div>
+</section>
+
 <div id="app" class="app hidden">
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><div class="brand-icon"><i class="fa-solid fa-paper-plane"></i></div><div><b>Fast Messenger</b><span>Realtime private chat</span></div></div><div class="top-actions"><button id="newChatBtn" class="icon-btn" title="নতুন চ্যাট"><i class="fa-solid fa-pen-to-square"></i></button><button id="profileBtn" class="avatar-btn"><img id="headerAvatar" alt="Profile"><span id="headerOnline"></span></button></div></div></header>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-icon"><i class="fa-solid fa-paper-plane"></i></div>
+        <div><b>Fast Messenger</b><span>Private • Realtime</span></div>
+      </div>
+      <div class="top-actions">
+        <button id="newChatBtn" class="round-btn" title="New chat"><i class="fa-solid fa-pen-to-square"></i></button>
+        <button id="profileBtn" class="avatar-btn" title="Profile"><img id="headerAvatar" alt="Profile"><span id="headerOnline"></span></button>
+        <button id="menuBtn" class="round-btn" title="Menu"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+      </div>
+    </div>
+  </header>
+
   <main class="main">
     <section id="homeView" class="view active">
-      <div class="view-head"><div><h2>Chats</h2><p id="chatSummary">আপনার realtime conversations</p></div><button id="refreshBtn" class="soft-btn"><i class="fa-solid fa-arrows-rotate"></i></button></div>
-      <div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input id="chatSearch" placeholder="চ্যাট বা মানুষ খুঁজুন..."></div>
+      <div class="hero-head">
+        <div><span class="eyebrow">MESSENGER</span><h2>Your chats</h2><p id="chatSummary">Realtime conversations</p></div>
+        <button id="refreshBtn" class="round-btn ghost"><i class="fa-solid fa-arrows-rotate"></i></button>
+      </div>
+      <div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input id="chatSearch" placeholder="চ্যাট বা মানুষ খুঁজুন..."><kbd>⌘ K</kbd></div>
       <div id="chatList" class="chat-list"></div>
     </section>
+
     <section id="peopleView" class="view">
-      <div class="view-head"><div><h2>People</h2><p>বন্ধু খুঁজুন ও conversation শুরু করুন</p></div></div>
+      <div class="hero-head"><div><span class="eyebrow">NETWORK</span><h2>People</h2><p>বন্ধু খুঁজুন ও নতুন conversation শুরু করুন</p></div></div>
       <div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input id="peopleSearch" placeholder="নাম বা email দিয়ে খুঁজুন..."></div>
-      <div class="people-tabs"><button class="pill active" data-people-tab="friends">Friends</button><button class="pill" data-people-tab="requests">Requests <span id="requestBadge">0</span></button><button class="pill" data-people-tab="all">Find people</button></div>
+      <div class="people-tabs">
+        <button class="pill active" data-people-tab="friends">Friends</button>
+        <button class="pill" data-people-tab="requests">Requests <span id="requestBadge">0</span></button>
+        <button class="pill" data-people-tab="all">Find people</button>
+      </div>
       <div id="peopleList" class="people-list"></div>
     </section>
+
     <section id="profileView" class="view">
-      <div class="profile-page"><div class="profile-cover"></div><div class="profile-main"><div class="profile-avatar"><img id="profileAvatar" alt="Profile"></div><h2 id="profileName">User</h2><p id="profileEmail"></p><div class="profile-status"><span class="status-dot"></span> Online</div><div class="profile-stats"><div><b id="statChats">0</b><span>Chats</span></div><div><b id="statFriends">0</b><span>Friends</span></div><div><b id="statSent">0</b><span>Sent</span></div></div><button id="editProfileBtn" class="primary-btn"><i class="fa-solid fa-user-pen"></i> Edit profile</button><button id="logoutBtn" class="danger-btn"><i class="fa-solid fa-right-from-bracket"></i> Log out</button></div></div>
+      <div class="profile-page">
+        <div class="profile-cover"><div class="cover-glow"></div><div class="google-chip"><i class="fa-brands fa-google"></i> Google account</div></div>
+        <div class="profile-main">
+          <div class="profile-avatar"><img id="profileAvatar" alt="Profile"><span></span></div>
+          <h2 id="profileName">User</h2><p id="profileEmail"></p>
+          <div class="google-profile-note"><i class="fa-solid fa-shield-halved"></i><span>নাম, ছবি ও ইমেইল Google account থেকে স্বয়ংক্রিয়ভাবে দেখানো হচ্ছে।</span></div>
+          <p id="profileBio" class="bio">Fast Messenger profile</p>
+          <div class="profile-status"><span class="status-dot"></span> Online</div>
+          <div class="profile-stats"><div><b id="statChats">0</b><span>Chats</span></div><div><b id="statFriends">0</b><span>Friends</span></div><div><b id="statSent">0</b><span>Sent</span></div></div>
+          <button id="settingsFromProfile" class="primary-btn"><i class="fa-solid fa-gear"></i> Settings</button>
+          <button id="logoutBtn" class="danger-btn"><i class="fa-solid fa-right-from-bracket"></i> Log out</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="settingsView" class="view">
+      <div class="settings-page">
+        <div class="settings-head">
+          <button class="round-btn ghost" id="settingsBack"><i class="fa-solid fa-arrow-left"></i></button>
+          <div><span class="eyebrow">CONTROL CENTER</span><h2>Settings</h2><p>অ্যাপের মূল কনফিগারেশন</p></div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Account Management</h3>
+          <button class="settings-item danger-soft" id="deleteAccountBtn">
+            <span class="settings-icon red"><i class="fa-solid fa-user-slash"></i></span>
+            <span class="settings-copy"><b>অ্যাকাউন্ট ডিলিট</b><small>আপনার অ্যাপের প্রোফাইল, বন্ধু, request ও message data মুছে ফেলুন</small></span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <div class="settings-section">
+          <h3>App Preferences</h3>
+          <div class="settings-item">
+            <span class="settings-icon purple"><i class="fa-solid fa-moon"></i></span>
+            <span class="settings-copy"><b>অ্যাপ থিম</b><small>Light / Dark mode</small></span>
+            <label class="switch"><input id="themeToggle" type="checkbox"><span></span></label>
+          </div>
+          <div class="settings-item">
+            <span class="settings-icon blue"><i class="fa-solid fa-bell"></i></span>
+            <span class="settings-copy"><b>নোটিফিকেশন</b><small>সাউন্ড ও in-app alert চালু/বন্ধ</small></span>
+            <label class="switch"><input id="notificationToggle" type="checkbox" checked><span></span></label>
+          </div>
+          <button class="settings-item" id="privacyBtn">
+            <span class="settings-icon green"><i class="fa-solid fa-shield-halved"></i></span>
+            <span class="settings-copy"><b>গোপনীয়তা নীতি</b><small>Google OAuth ও আপনার data ব্যবহারের নিয়ম</small></span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+          <button class="settings-item" id="clearCacheBtn">
+            <span class="settings-icon orange"><i class="fa-solid fa-broom"></i></span>
+            <span class="settings-copy"><b>ক্যাশে ক্লিয়ার</b><small>অপ্রয়োজনীয় temporary browser data পরিষ্কার করুন</small></span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <div class="settings-section">
+          <h3>Support</h3>
+          <button class="settings-item" id="supportBtn">
+            <span class="settings-icon cyan"><i class="fa-regular fa-life-ring"></i></span>
+            <span class="settings-copy"><b>সাপোর্ট / মতামত</b><small>সমস্যা বা feedback সরাসরি support email-এ পাঠান</small></span>
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+          <div class="support-note">Support email: <b id="supportEmailLabel">YOUR_SUPPORT_EMAIL@example.com</b></div>
+        </div>
+      </div>
     </section>
   </main>
-  <nav class="bottom-nav"><button class="nav-item active" data-view="homeView"><i class="fa-solid fa-comments"></i><span>Chats</span><b id="navChatBadge" class="nav-badge hidden">0</b></button><button class="nav-item" data-view="peopleView"><i class="fa-solid fa-user-group"></i><span>People</span><b id="navPeopleBadge" class="nav-badge hidden">0</b></button><button class="nav-item" data-view="profileView"><i class="fa-solid fa-user"></i><span>Profile</span></button></nav>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="homeView"><i class="fa-regular fa-comments nav-outline"></i><i class="fa-solid fa-comments nav-filled"></i><span>Chats</span><b id="navChatBadge" class="nav-badge hidden">0</b></button>
+    <button class="nav-item" data-view="peopleView"><i class="fa-regular fa-user-group nav-outline"></i><i class="fa-solid fa-user-group nav-filled"></i><span>People</span><b id="navPeopleBadge" class="nav-badge hidden">0</b></button>
+    <button id="navFab" class="nav-fab" title="New chat"><span><i class="fa-solid fa-plus"></i></span></button>
+    <button class="nav-item" data-view="profileView"><i class="fa-regular fa-user nav-outline"></i><i class="fa-solid fa-user nav-filled"></i><span>Profile</span></button>
+    <button class="nav-item" data-view="settingsView"><i class="fa-regular fa-gear nav-outline"></i><i class="fa-solid fa-gear nav-filled"></i><span>Settings</span></button>
+  </nav>
 </div>
-<div id="chatPanel" class="chat-panel hidden">
-  <header class="chat-top"><button id="backChat" class="icon-btn"><i class="fa-solid fa-arrow-left"></i></button><img id="chatAvatar" alt=""><div class="chat-title"><b id="chatName">Chat</b><span id="chatStatus">offline</span></div><button id="chatInfo" class="icon-btn"><i class="fa-solid fa-circle-info"></i></button></header>
-  <div id="messages" class="messages"></div><div id="typing" class="typing hidden"><span></span><span></span><span></span><em>typing...</em></div>
-  <form id="composer" class="composer"><label class="attach"><input id="imageInput" type="file" accept="image/*" multiple hidden><i class="fa-regular fa-image"></i></label><div class="compose-box"><div id="attachmentPreview" class="attachment-preview hidden"></div><textarea id="messageInput" rows="1" maxlength="4000" placeholder="মেসেজ লিখুন..."></textarea></div><button class="send-btn" type="submit"><i class="fa-solid fa-paper-plane"></i></button></form>
+
+<section id="chatPanel" class="chat-panel hidden">
+  <header class="chat-top">
+    <button id="backChat" class="round-btn ghost"><i class="fa-solid fa-arrow-left"></i></button>
+    <div class="chat-person"><img id="chatAvatar" alt=""><span id="chatPresence" class="presence-dot"></span></div>
+    <div class="chat-title"><b id="chatName">Chat</b><span id="chatStatus">offline</span></div>
+    <button id="chatInfo" class="round-btn ghost"><i class="fa-solid fa-circle-info"></i></button>
+  </header>
+  <div id="messages" class="messages"></div>
+  <div id="typing" class="typing hidden"><span></span><span></span><span></span><em>typing...</em></div>
+
+  <form id="composer" class="composer">
+    <div class="attach-wrap">
+      <button type="button" id="attachBtn" class="attach-btn" title="Attach"><i class="fa-solid fa-plus"></i></button>
+      <div id="attachMenu" class="attach-menu hidden">
+        <button type="button" id="pickImage"><span class="attach-icon image"><i class="fa-regular fa-image"></i></span><span><b>Photo</b><small>ImgBB image hosting</small></span></button>
+        <button type="button" id="pickFile"><span class="attach-icon file"><i class="fa-solid fa-file-arrow-up"></i></span><span><b>File</b><small>GoFile secure link</small></span></button>
+      </div>
+      <input id="imageInput" type="file" accept="image/*" multiple hidden>
+      <input id="fileInput" type="file" hidden>
+    </div>
+    <div class="compose-box">
+      <div id="uploadQueue" class="upload-queue hidden"></div>
+      <textarea id="messageInput" rows="1" maxlength="4000" placeholder="মেসেজ লিখুন..."></textarea>
+    </div>
+    <button class="send-btn" type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+  </form>
+</section>
+
+<div id="moreMenu" class="more-menu hidden">
+  <div class="more-menu-head"><img id="menuAvatar" alt=""><div><b id="menuName">User</b><small id="menuEmail"></small></div></div>
+  <button data-menu-action="profile"><i class="fa-regular fa-user"></i><span>প্রোফাইল</span></button>
+  <button data-menu-action="settings"><i class="fa-solid fa-gear"></i><span>সেটিংস</span></button>
+  <button data-menu-action="share"><i class="fa-solid fa-share-nodes"></i><span>শেয়ার অ্যাপ</span></button>
+  <button data-menu-action="support"><i class="fa-regular fa-life-ring"></i><span>সাপোর্ট / মতামত</span></button>
+  <div class="menu-divider"></div>
+  <button class="menu-danger" data-menu-action="logout"><i class="fa-solid fa-right-from-bracket"></i><span>লগআউট</span></button>
 </div>
-<div id="profileModal" class="modal hidden"><div class="modal-card"><button class="modal-close" data-close="profileModal"><i class="fa-solid fa-xmark"></i></button><h3>Edit profile</h3><label>Name<input id="editName" maxlength="80"></label><label>Photo URL<input id="editPhoto" type="url" placeholder="https://..."></label><label>Bio<textarea id="editBio" maxlength="300" rows="3"></textarea></label><button id="saveProfile" class="primary-btn">Save changes</button></div></div>
-<div id="userModal" class="modal hidden"><div class="modal-card user-card"><button class="modal-close" data-close="userModal"><i class="fa-solid fa-xmark"></i></button><img id="userModalAvatar" class="user-modal-avatar" alt=""><h3 id="userModalName"></h3><p id="userModalEmail"></p><p id="userModalBio"></p><button id="userModalChat" class="primary-btn">Open chat</button></div></div>
-</div>
-<script src="./assets/js/app.js?v=1"></script>
-</body></html>
+
+<div id="privacyModal" class="modal hidden"><div class="modal-card policy-card">
+  <button class="modal-close" data-close="privacyModal"><i class="fa-solid fa-xmark"></i></button>
+  <div class="policy-icon"><i class="fa-solid fa-shield-halved"></i></div>
+  <h3>Privacy Policy</h3>
+  <div class="policy-scroll">
+    <p><b>Google Sign-in data:</b> এই অ্যাপ Google OAuth-এর মাধ্যমে আপনার Google account থেকে সাধারণত নাম, email address এবং profile photo পায়।</p>
+    <p><b>ব্যবহারের উদ্দেশ্য:</b> পরিচয় নিশ্চিত করা, প্রোফাইল দেখানো, বন্ধু/চ্যাটে সঠিক ব্যবহারকারী শনাক্ত করা এবং অ্যাপের realtime messaging চালাতে এই তথ্য ব্যবহার করা হয়।</p>
+    <p><b>Messaging data:</b> আপনি পাঠানো message, image link এবং file sharing metadata অ্যাপের messaging database-এ সংরক্ষিত হতে পারে যাতে conversation realtime-এ দেখানো যায়।</p>
+    <p><b>Third-party services:</b> ছবি ImgBB এবং file GoFile-এ upload হতে পারে। এগুলো ব্যবহার করার আগে তাদের নিজস্ব privacy policy ও terms দেখে নিন।</p>
+    <p><b>Account deletion:</b> Settings → Account Management থেকে আপনার app account ও app-stored data মুছে ফেলার অনুরোধ করতে পারবেন। Google account নিজে এই অ্যাপ থেকে মুছে ফেলা হয় না।</p>
+    <p><b>নোট:</b> এই পেজটি অ্যাপের বর্তমান data flow ব্যাখ্যা করার জন্য একটি starter policy। production release-এর আগে আপনার support email, developer/company identity, retention period এবং applicable legal requirements অনুযায়ী এটিকে চূড়ান্ত করা উচিত।</p>
+  </div>
+</div></div>
+
+<div id="profileModal" class="modal hidden"><div class="modal-card">
+  <button class="modal-close" data-close="profileModal"><i class="fa-solid fa-xmark"></i></button>
+  <h3>Edit profile</h3>
+  <label>Name<input id="editName" maxlength="80"></label>
+  <label>Photo URL<input id="editPhoto" type="url" placeholder="https://..."></label>
+  <label>Bio<textarea id="editBio" maxlength="300" rows="3"></textarea></label>
+  <button id="saveProfile" class="primary-btn">Save changes</button>
+</div></div>
+
+<div id="userModal" class="modal hidden"><div class="modal-card user-card">
+  <button class="modal-close" data-close="userModal"><i class="fa-solid fa-xmark"></i></button>
+  <img id="userModalAvatar" class="user-modal-avatar" alt="">
+  <h3 id="userModalName"></h3><p id="userModalEmail"></p><p id="userModalBio"></p>
+  <button id="userModalChat" class="primary-btn">Open chat</button>
+</div></div>
+
+<div id="lightbox" class="lightbox hidden"><button id="closeLightbox"><i class="fa-solid fa-xmark"></i></button><img id="lightboxImg" alt=""></div>
+<script src="./assets/js/app.js?v=4"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(console.warn));
+}
+</script>
+</body>
+</html>
