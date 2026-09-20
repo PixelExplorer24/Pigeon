@@ -289,7 +289,70 @@ const bytes=n=>{if(!n)return"0 B";const u=["B","KB","MB","GB"];let i=Math.floor(
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("show"),2400)}
 function isFriend(uid){return friends.some(f=>f.friendUid===uid)}
 function closeAllModals(){document.querySelectorAll(".modal").forEach(x=>x.classList.add("hidden"))}
-function showView(id){document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll(".nav-item").forEach(x=>x.classList.toggle("active",x.dataset.view===id))}
+
+// ===== SPA back navigation =====
+// Internal screens use a hash sub-link so browser Back stays inside the app
+// instead of leaving the GitHub Pages app.
+let routeSyncing=false;
+function viewRoute(id){return ({homeView:"home",peopleView:"people",groupsView:"groups",profileView:"profile",settingsView:"settings"})[id]||"home"}
+function routeView(route){return ({home:"homeView",people:"peopleView",groups:"groupsView",profile:"profileView",settings:"settingsView"})[route]||"homeView"}
+function currentRoute(){
+  const h=decodeURIComponent(String(location.hash||"").replace(/^#/,""));
+  if(h.startsWith("chat/"))return {type:"chat",id:h.slice(5)};
+  return {type:"view",name:h||"home"};
+}
+function pushAppRoute(route){
+  if(routeSyncing)return;
+  const target="#"+route;
+  if(location.hash===target)return;
+  history.pushState({fastMessenger:true,route},"",target);
+}
+function showView(id,withHistory=true){
+  if(!$(id))return;
+  if(withHistory)pushAppRoute(viewRoute(id));
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll(".nav-item").forEach(x=>x.classList.toggle("active",x.dataset.view===id));
+}
+function applyAppRoute(){
+  routeSyncing=true;
+  const r=currentRoute();
+  if(r.type==="chat"){
+    // Chat is opened by the normal app action; Back simply returns to the
+    // previous internal screen without navigating away from the app.
+    if(!activeFriend){
+      const prior=history.state?.fastMessenger ? history.state.route : "home";
+      showView(routeView(prior),false);
+    }
+  }else{
+    if(activeFriend)closeChat();
+    showView(routeView(r.name),false);
+  }
+  routeSyncing=false;
+}
+function initAppHistory(){
+  const r=currentRoute();
+  if(!location.hash){
+    history.replaceState({fastMessenger:true,route:"home"},"", "#home");
+    // Sentinel entry: pressing Back from the app's first screen remains in-app.
+    history.pushState({fastMessenger:true,route:"home",sentinel:true},"", "#home");
+  }else if(!history.state?.fastMessenger){
+    history.replaceState({fastMessenger:true,route:r.name||"home"},"",location.href);
+    history.pushState({fastMessenger:true,route:r.name||"home",sentinel:true},"",location.href);
+  }
+  applyAppRoute();
+}
+window.addEventListener("popstate",()=>{
+  // Keep the app on an internal sub-link when Back reaches its first route.
+  if(location.hash){
+    if(history.state?.fastMessenger && history.state?.route==="home" && !history.state?.sentinel){
+      history.pushState({fastMessenger:true,route:"home",sentinel:true},"", "#home");
+    }
+    applyAppRoute();
+    return;
+  }
+  // If browser Back reaches the page without an app hash, restore the app route.
+  history.pushState({fastMessenger:true,route:"home",sentinel:true},"", "#home");
+  applyAppRoute();
+});
 function syncProfile(){if(!profile)return;try{saveLocal("profile",profile)}catch(_){}const name=profile.displayName||me.displayName||me.email?.split("@")[0]||"User";$("headerAvatar").src=avatar(profile);$("profileAvatar").src=avatar(profile);$("profileName").textContent=name;$("profileEmail").textContent=profile.email||me.email||"";$("profileBio").textContent=profile.bio||"No bio added.";$("editName").value=name;$("editPhoto").value=profile.photoURL||"";$("editBio").value=profile.bio||""}
 async function ensureUser(){const ref=USERS().doc(me.uid),snap=await ref.get();const base={uid:me.uid,displayName:me.displayName||me.email?.split("@")[0]||"User",email:me.email||"",photoURL:me.photoURL||null,lastSeen:firebase.firestore.FieldValue.serverTimestamp(),online:true};if(!snap.exists)await ref.set(base);else await ref.set({lastSeen:base.lastSeen,online:true},{merge:true});profile={...base,...(snap.exists?snap.data():{})};
   const googleName=me.displayName||profile.displayName||base.displayName;
@@ -461,6 +524,7 @@ async function openChat(uid){
   try{await idbOpen()}catch(e){console.warn("local message store unavailable",e)}
   activeFriend=u;
   setChatHeader(u);
+  if(!routeSyncing)pushAppRoute("chat/"+encodeURIComponent(uid));
   $("chatPanel").classList.remove("hidden");
   document.body.style.overflow="hidden";
   subscribeChat(uid);
@@ -471,9 +535,9 @@ async function openGroupChat(groupId){
   currentConversationId=groupId;
   const g=groups.find(x=>x.id===groupId);if(!g)return toast("গ্রুপ পাওয়া যায়নি");
   if(!(g.memberUids||[]).includes(me.uid))return toast("আপনি এই গ্রুপের সদস্য নন");
-  await idbOpen();activeFriend={...g,uid:g.id,isGroup:true};setChatHeader(activeFriend);$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(groupId);watchTyping();await renderMessages()
+  await idbOpen();activeFriend={...g,uid:g.id,isGroup:true};setChatHeader(activeFriend);if(!routeSyncing)pushAppRoute("chat/group/"+encodeURIComponent(groupId));$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(groupId);watchTyping();await renderMessages()
 }
-function closeChat(){currentConversationId=null;chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];if(typingUnsub)typingUnsub();typingUnsub=null;activeFriend=null;$("chatPanel")?.classList.add("hidden");document.body.style.overflow="";attachedImages=[];attachedFiles=[];renderUploadQueue()}
+function closeChat(){currentConversationId=null;chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];if(typingUnsub)typingUnsub();typingUnsub=null;activeFriend=null;$("chatPanel")?.classList.add("hidden");document.body.style.overflow="";attachedImages=[];attachedFiles=[];renderUploadQueue();if(!routeSyncing&&String(location.hash||"").startsWith("#chat/")){history.back()}}
 function watchTyping(){if(typingUnsub)typingUnsub();if(!activeFriend||activeFriend.isGroup){$("typing").classList.add("hidden");return}typingUnsub=USERS().doc(activeFriend.uid).onSnapshot(s=>{$("typing").classList.toggle("hidden",(s.data()||{}).typingTo!==me.uid)})}
 
 async function uploadImage(file,onProgress){if(file.size>32*1024*1024)throw new Error("Image 32MB-এর বেশি হতে পারবে না");const fd=new FormData();fd.append("image",file);const r=await fetch(`https://api.imgbb.com/1/upload?key=${IMAGE_UPLOAD_KEY}`,{method:"POST",body:fd});const j=await r.json();if(!j.success)throw new Error("ছবি আপলোড করা যায়নি");if(onProgress)onProgress(100);return j.data.url}
@@ -901,6 +965,9 @@ $("callParticipantsList").onclick=e=>{
 document.addEventListener("click",e=>{const menu=$("audioOutputMenu");if(!menu||menu.classList.contains("hidden"))return;if(!menu.contains(e.target)&&!$("speakerCallBtn")?.contains(e.target))menu.classList.add("hidden")});
 
 const originalAuthHandler = auth.currentUser;
+
+// Initialize internal sub-links once the DOM is ready.
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initAppHistory,{once:true});else initAppHistory();
 
 // ===== v4 startup hooks =====
 window.addEventListener("online",updateConnectivity);
