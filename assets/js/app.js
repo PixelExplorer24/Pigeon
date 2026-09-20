@@ -1188,6 +1188,8 @@ window.filterUsers = function() {
         let pigeonAnimationFrame = null;
         let lastTelemetryPaint = 0;
         let lastFollowCenter = 0;
+        let mapFollowMode = false;
+        let mapProgrammaticCameraMove = false;
 
         // Fetch / Refresh Pigeons
         function fetchPigeonsList() {
@@ -1532,13 +1534,8 @@ let selectedFileBlobs = [];
                 roadRouteKey = key;
                 updateRoadRouteLine(pigeon);
 
-                if (activePigeonId === pigeon.id) {
-                    const bounds = roadRouteCoordinates.reduce(
-                        (bnd, c) => bnd.extend(c),
-                        new mapboxgl.LngLatBounds(roadRouteCoordinates[0], roadRouteCoordinates[0])
-                    );
-                    leafletMap.fitBounds(bounds, { padding: 90, maxZoom: 14, duration: 900 });
-                }
+                // Important: loading a route must never reset the user's map camera.
+                // The map is focused only when the user explicitly selects a pigeon.
             } catch (error) {
                 // Keep a visible sender → receiver line even if the routing API is unavailable.
                 console.warn('Road routing unavailable; using direct sender-to-receiver marking.', error);
@@ -1652,6 +1649,20 @@ let selectedFileBlobs = [];
 
                 leafletMap.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-right');
 
+                // Manual map interaction always takes priority over tracking.
+                // This prevents accidental camera recentering while the pigeon is moving.
+                const releaseMapFollow = () => {
+                    if (mapProgrammaticCameraMove) return;
+                    if (mapFollowMode) {
+                        mapFollowMode = false;
+                        updateMapFollowButton();
+                    }
+                };
+                leafletMap.on('dragstart', releaseMapFollow);
+                leafletMap.on('zoomstart', releaseMapFollow);
+                leafletMap.on('rotatestart', releaseMapFollow);
+                leafletMap.on('pitchstart', releaseMapFollow);
+
                 const senderIcon = createMapboxMarkerElement(
                     `<div class="w-8 h-8 rounded-full bg-parchment-900 border-2 border-wax-gold text-wax-gold flex items-center justify-center shadow-lg text-xs"><i class="fa-solid fa-house-chimney"></i></div>`,
                     32, 32
@@ -1665,140 +1676,14 @@ let selectedFileBlobs = [];
             );
 
             const pigeonIcon = createMapboxMarkerElement(
-                `<div id="pigeonIconContainer" class="pigeon-photo-marker" title="HD Carrier Pigeon">
-                    <div class="pigeon-svg-wrap">
-                        <svg class="pigeon-svg" viewBox="0 0 460 350" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <defs>
-                                <linearGradient id="pBody" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0" stop-color="#ffffff"/>
-                                    <stop offset=".38" stop-color="#e9edf1"/>
-                                    <stop offset=".72" stop-color="#aeb8c1"/>
-                                    <stop offset="1" stop-color="#65717b"/>
-                                </linearGradient>
-                                <linearGradient id="pWing" x1="0" y1="0" x2=".9" y2="1">
-                                    <stop offset="0" stop-color="#ffffff"/>
-                                    <stop offset=".35" stop-color="#d9e0e6"/>
-                                    <stop offset=".72" stop-color="#87939d"/>
-                                    <stop offset="1" stop-color="#39444d"/>
-                                </linearGradient>
-                                <linearGradient id="pWingLight" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0" stop-color="#ffffff"/>
-                                    <stop offset=".55" stop-color="#cbd3da"/>
-                                    <stop offset="1" stop-color="#707c86"/>
-                                </linearGradient>
-                                <linearGradient id="pNeck" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0" stop-color="#485a83"/>
-                                    <stop offset=".32" stop-color="#2e9a92"/>
-                                    <stop offset=".58" stop-color="#7659a2"/>
-                                    <stop offset=".82" stop-color="#385d89"/>
-                                    <stop offset="1" stop-color="#313a58"/>
-                                </linearGradient>
-                                <linearGradient id="pBeak" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0" stop-color="#e9a079"/>
-                                    <stop offset="1" stop-color="#b95e46"/>
-                                </linearGradient>
-                                <linearGradient id="pLetter" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0" stop-color="#fffdf5"/>
-                                    <stop offset="1" stop-color="#d9c49e"/>
-                                </linearGradient>
-                                <filter id="pShadow" x="-30%" y="-30%" width="160%" height="180%">
-                                    <feDropShadow dx="0" dy="12" stdDeviation="8" flood-color="#1c120d" flood-opacity=".42"/>
-                                </filter>
-                                <filter id="pSoft" x="-30%" y="-30%" width="160%" height="160%">
-                                    <feGaussianBlur stdDeviation="2.5"/>
-                                </filter>
-                                <radialGradient id="pEye">
-                                    <stop offset="0" stop-color="#ffffff"/>
-                                    <stop offset=".15" stop-color="#d79b39"/>
-                                    <stop offset=".38" stop-color="#5a3516"/>
-                                    <stop offset="1" stop-color="#090909"/>
-                                </radialGradient>
-                            </defs>
-
-                            <ellipse cx="213" cy="300" rx="92" ry="15" fill="#000" opacity=".18" filter="url(#pSoft)"/>
-
-                            <!-- Rear wing: long primary feathers -->
-                            <g class="pigeon-wing-back" filter="url(#pShadow)">
-                                <path d="M177 174 C111 137 71 77 83 28 C90 4 111 8 127 29
-                                         C150 59 177 105 202 154 Z"
-                                      fill="url(#pWing)" stroke="#65717b" stroke-width="3"/>
-                                <path d="M150 151 C107 107 88 61 91 30" fill="none" stroke="#ffffff" stroke-width="7" opacity=".72"/>
-                                <path d="M165 151 C126 103 112 63 111 24" fill="none" stroke="#aeb8c1" stroke-width="8"/>
-                                <path d="M180 151 C151 103 139 66 134 31" fill="none" stroke="#7d8993" stroke-width="7"/>
-                            </g>
-
-                            <!-- Tail -->
-                            <g filter="url(#pShadow)">
-                                <path d="M126 229 L39 257 L82 225 L35 226 L122 197 Z"
-                                      fill="url(#pWingLight)" stroke="#67737d" stroke-width="3"/>
-                                <path d="M112 214 L55 247" stroke="#8e9aa4" stroke-width="5" opacity=".8"/>
-                                <path d="M111 207 L55 226" stroke="#ffffff" stroke-width="4" opacity=".65"/>
-                            </g>
-
-                            <!-- Main body -->
-                            <g filter="url(#pShadow)">
-                                <ellipse cx="224" cy="208" rx="113" ry="70" fill="url(#pBody)" stroke="#626e78" stroke-width="3"/>
-                                <ellipse cx="174" cy="216" rx="61" ry="55" fill="#f8fafb" opacity=".68"/>
-                                <path d="M126 198 C166 170 221 169 278 195 C248 188 207 195 174 224 C157 239 140 231 126 198Z"
-                                      fill="#ffffff" opacity=".58"/>
-                            </g>
-
-                            <!-- Neck iridescence -->
-                            <path d="M259 151 C285 139 316 148 332 173 C346 196 327 221 298 224
-                                     C270 226 248 208 247 184 C246 169 251 158 259 151Z"
-                                  fill="url(#pNeck)" opacity=".96"/>
-
-                            <!-- Head -->
-                            <g filter="url(#pShadow)">
-                                <ellipse cx="326" cy="137" rx="57" ry="52" fill="url(#pBody)" stroke="#626e78" stroke-width="3"/>
-                                <ellipse cx="346" cy="118" rx="22" ry="16" fill="#ffffff" opacity=".5"/>
-                            </g>
-
-                            <!-- Face -->
-                            <path d="M355 151 C369 154 383 159 399 165 L367 176 L345 166 Z"
-                                  fill="url(#pBeak)" stroke="#8d4d3b" stroke-width="2"/>
-                            <path d="M356 151 C370 153 382 157 392 162 L367 164 Z"
-                                  fill="#e9b08c"/>
-                            <ellipse cx="346" cy="132" rx="13" ry="13" fill="url(#pEye)" stroke="#1b1b1b" stroke-width="2"/>
-                            <circle class="pigeon-eye-glint" cx="350" cy="128" r="3.5" fill="#fff"/>
-
-                            <!-- Front wing -->
-                            <g class="pigeon-wing-front" filter="url(#pShadow)">
-                                <path d="M178 170 C128 137 111 99 125 73 C134 56 153 66 171 88
-                                         C202 125 231 163 254 196 C228 210 202 194 178 170Z"
-                                      fill="url(#pWingLight)" stroke="#5f6b75" stroke-width="3"/>
-                                <path class="pigeon-wing-feather" d="M139 82 C158 108 177 138 195 168" fill="none" stroke="#ffffff" stroke-width="9"/>
-                                <path class="pigeon-wing-feather" d="M151 76 C173 106 193 137 210 169" fill="none" stroke="#9aa6b0" stroke-width="9"/>
-                                <path class="pigeon-wing-feather" d="M165 78 C187 107 206 137 223 173" fill="none" stroke="#6f7b85" stroke-width="8"/>
-                                <path d="M177 92 C192 119 208 143 228 166" fill="none" stroke="#ffffff" stroke-width="4" opacity=".65"/>
-                            </g>
-
-                            <!-- Breast highlight -->
-                            <path d="M150 228 C176 253 216 268 255 253 C234 277 189 282 158 258 C145 248 140 237 150 228Z"
-                                  fill="#ffffff" opacity=".42"/>
-
-                            <!-- Feet and letter -->
-                            <g class="pigeon-letter" filter="url(#pShadow)">
-                                <path d="M237 254 L248 273 M258 252 L265 272" stroke="#bd704e" stroke-width="6" stroke-linecap="round"/>
-                                <path d="M241 272 C231 278 226 278 220 275 M263 271 C271 277 278 278 284 274"
-                                      fill="none" stroke="#bd704e" stroke-width="5" stroke-linecap="round"/>
-                                <g transform="translate(226 267) rotate(3)">
-                                    <rect x="0" y="0" width="72" height="49" rx="3" fill="url(#pLetter)" stroke="#a98c60" stroke-width="2"/>
-                                    <path d="M2 3 L36 28 L70 3" fill="none" stroke="#b79b6d" stroke-width="2"/>
-                                    <path d="M2 46 L27 25 M70 46 L45 25" fill="none" stroke="#c7ae82" stroke-width="1.5"/>
-                                    <circle cx="36" cy="28" r="7" fill="#8b1e1e"/>
-                                    <path d="M32 28 l4 4 7 -9" fill="none" stroke="#fff" stroke-width="2"/>
-                                </g>
-                            </g>
-
-                            <!-- Tiny feather accents -->
-                            <path d="M105 184 C128 174 148 171 168 175" fill="none" stroke="#7d8993" stroke-width="4" opacity=".55"/>
-                            <path d="M108 194 C131 184 151 183 170 188" fill="none" stroke="#ffffff" stroke-width="3" opacity=".7"/>
-                        </svg>
+                `<div id="pigeonIconContainer" class="pigeon-photo-marker smart-pigeon-marker" title="Smart Carrier Pigeon" aria-label="Smart carrier pigeon in flight">
+                    <div class="pigeon-flight-aura"></div>
+                    <div class="pigeon-svg-wrap smart-pigeon-wrap">
+                        <img class="smart-pigeon-image" src="assets/images/smart-carrier-pigeon.png" alt="Carrier pigeon flying" draggable="false">
                     </div>
                     <div class="pigeon-flight-trail"></div>
                 </div>`,
-                230, 175
+                230, 150
             );
             pigeon3DMarkerEl = pigeonIcon.querySelector('#pigeonIconContainer');
             if (pigeon3DMarkerEl) {
@@ -1813,7 +1698,12 @@ let selectedFileBlobs = [];
             receiverMarker = new mapboxgl.Marker({ element: receiverIcon, anchor: 'center' })
                 .setLngLat([0, 0]).addTo(leafletMap);
 
-                pigeonMarker = new mapboxgl.Marker({ element: pigeonIcon, anchor: 'center' })
+                pigeonMarker = new mapboxgl.Marker({
+                    element: pigeonIcon,
+                    anchor: 'center',
+                    rotationAlignment: 'viewport',
+                    pitchAlignment: 'viewport'
+                })
                     .setLngLat([0, 0]).addTo(leafletMap);
 
                 // Make the pigeon visually scale with Mapbox zoom.
@@ -1828,6 +1718,7 @@ let selectedFileBlobs = [];
 
                 leafletMap.on('zoom', updatePigeonZoomScale);
                 leafletMap.on('zoomend', updatePigeonZoomScale);
+                leafletMap.on('rotate', applyPigeonVisualTransform);
 
                 leafletMap.on('load', () => {
                     // Give the map a more dimensional, sky-tracking presentation.
@@ -1891,9 +1782,14 @@ let selectedFileBlobs = [];
         function applyPigeonVisualTransform() {
             if (!pigeon3DMarkerEl) return;
             const zoomScale = Number(pigeon3DMarkerEl.dataset.zoomScale || 1);
-            const currentRotation = Number(pigeon3DMarkerEl.dataset.bearing || 0);
+            const geoBearing = Number(pigeon3DMarkerEl.dataset.bearing || 0);
+            // The generated pigeon faces screen-right (east) at 0deg.
+            // Convert geographic bearing (0=north, 90=east) to a screen angle,
+            // including the user's current map rotation, so it never flies backwards.
+            const mapBearing = leafletMap ? Number(leafletMap.getBearing() || 0) : 0;
+            const screenRotation = geoBearing - mapBearing - 90;
             pigeon3DMarkerEl.style.transform =
-                `rotate(${currentRotation}deg) scale(${zoomScale})`;
+                `rotate(${screenRotation}deg) scale(${zoomScale})`;
         }
 
         function getAnimatedPigeonState(pigeon, now = Date.now()) {
@@ -1928,12 +1824,23 @@ let selectedFileBlobs = [];
             pigeonMarker.setLngLat([state.currentPos.lng, state.currentPos.lat]);
             pigeonMarker.getElement().style.display = 'block';
             if (pigeon3DMarkerEl) {
-                // Map bearing: 0° = north. The pigeon is drawn facing north.
-                const zoomScale = Number(pigeon3DMarkerEl.dataset.zoomScale || 1);
-                pigeon3DMarkerEl.dataset.bearing = state.bearing.toFixed(2);
-                pigeon3DMarkerEl.style.transform =
-                    `rotate(${state.bearing}deg) scale(${zoomScale})`;
+                const previousBearing = Number(pigeon3DMarkerEl.dataset.bearing || state.bearing);
+                const delta = ((state.bearing - previousBearing + 540) % 360) - 180;
+                const smoothBearing = previousBearing + delta * 0.18;
+                pigeon3DMarkerEl.dataset.bearing = smoothBearing.toFixed(2);
+                applyPigeonVisualTransform();
                 pigeon3DMarkerEl.style.opacity = state.delivered ? '0.72' : '1';
+
+                // Optional follow mode. It is OFF by default so the user can keep
+                // the map fixed anywhere while zooming/panning/rotating.
+                if (mapFollowMode && now - lastFollowCenter > 220 && !mapProgrammaticCameraMove) {
+                    lastFollowCenter = now;
+                    leafletMap.easeTo({
+                        center: [state.currentPos.lng, state.currentPos.lat],
+                        duration: 260,
+                        essential: true
+                    });
+                }
             }
 
             if (now - lastTelemetryPaint > 120) {
@@ -2368,25 +2275,64 @@ let selectedFileBlobs = [];
             const pigeon = window.pigeonsList?.find(p => p.id === pigeonId);
             if (!pigeon) return;
 
-            // Calculate the bird's current position without starting a follow mode.
-            // This is intentionally a one-time camera move: after the camera arrives,
-            // the user remains completely free to drag, zoom, rotate or pitch the map.
             const state = getAnimatedPigeonState(pigeon, Date.now());
             const pos = state?.currentPos || pigeon.senderCoords;
             if (!pos) return;
 
             const targetZoom = options.zoom ?? Math.max(5.5, Math.min(10.5, leafletMap.getZoom() || 7));
-
+            mapProgrammaticCameraMove = true;
             leafletMap.stop();
             leafletMap.flyTo({
                 center: [Number(pos.lng), Number(pos.lat)],
                 zoom: targetZoom,
-                duration: options.duration ?? 1100,
+                duration: options.duration ?? 900,
                 essential: true,
-                curve: 1.25,
-                speed: 1.1
+                curve: 1.15,
+                speed: 1.2
+            });
+            leafletMap.once('moveend', () => {
+                mapProgrammaticCameraMove = false;
+                applyPigeonVisualTransform();
             });
         }
+
+        function updateMapFollowButton() {
+            const btn = document.getElementById('mapFollowBtn');
+            if (!btn) return;
+            const label = btn.querySelector('.follow-label');
+            const icon = btn.querySelector('i');
+            if (mapFollowMode) {
+                btn.classList.add('is-following');
+                if (label) label.textContent = 'Following';
+                if (icon) icon.className = 'fa-solid fa-location-crosshairs';
+                btn.setAttribute('aria-pressed', 'true');
+                btn.title = 'Turn off follow mode';
+            } else {
+                btn.classList.remove('is-following');
+                if (label) label.textContent = 'Follow Pigeon';
+                if (icon) icon.className = 'fa-solid fa-location-arrow';
+                btn.setAttribute('aria-pressed', 'false');
+                btn.title = 'Follow the pigeon automatically';
+            }
+        }
+
+        function toggleMapFollowMode() {
+            if (!leafletMap || !activePigeonId) return;
+            mapFollowMode = !mapFollowMode;
+            updateMapFollowButton();
+            if (mapFollowMode) {
+                const pigeon = window.pigeonsList?.find(p => p.id === activePigeonId);
+                const state = pigeon ? getAnimatedPigeonState(pigeon, Date.now()) : null;
+                if (state?.currentPos) {
+                    leafletMap.easeTo({
+                        center: [state.currentPos.lng, state.currentPos.lat],
+                        duration: 450,
+                        essential: true
+                    });
+                }
+            }
+        }
+
 
         function trackPigeonOnMap(pigeonId) {
             const pigeon = window.pigeonsList.find(p => p.id === pigeonId);
@@ -2394,22 +2340,16 @@ let selectedFileBlobs = [];
             activePigeonId = pigeonId;
             roadRouteCoordinates = [];
             roadRouteKey = '';
+            mapFollowMode = false;
+            updateMapFollowButton();
             switchTab('map');
 
-            // Once the Map tab is visible and Mapbox has resized, move the camera
-            // directly to the flying pigeon's current location. This is NOT a
-            // continuous follow: the user can freely move the map afterwards.
-            const focus = () => {
+            // Focus only once when the user explicitly selects a pigeon.
+            // After that, the map belongs entirely to the user unless Follow Pigeon is enabled.
+            requestAnimationFrame(() => {
                 if (!leafletMap) return;
                 if (typeof leafletMap.resize === 'function') leafletMap.resize();
                 focusMapOnTrackedPigeon(pigeonId);
-            };
-
-            // switchTab initializes the map when necessary, so wait for the next
-            // frame and then focus. A second pass handles the first Mapbox render.
-            requestAnimationFrame(() => {
-                focus();
-                setTimeout(focus, 180);
             });
         }
 
