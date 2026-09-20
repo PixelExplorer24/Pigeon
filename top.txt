@@ -66,15 +66,6 @@
       <div id="peopleList" class="people-list"></div>
     </section>
 
-    <section id="groupsView" class="view">
-      <div class="hero-head">
-        <div><h2>Groups</h2><p>আপনার বন্ধুদের নিয়ে তৈরি করা গ্রুপগুলো এখানে</p></div>
-        <button id="createGroupBtn" class="round-btn ghost" title="নতুন গ্রুপ"><i class="fa-solid fa-user-group"></i></button>
-      </div>
-      <div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input id="groupSearch" placeholder="গ্রুপ খুঁজুন..."></div>
-      <div id="groupList" class="people-list"></div>
-    </section>
-
     <section id="profileView" class="view">
       <div class="profile-page">
         <div class="profile-cover"><div class="cover-glow"></div><div class="google-chip"><i class="fa-brands fa-google"></i> Google account</div></div>
@@ -158,7 +149,6 @@
   <nav class="bottom-nav">
     <button class="nav-item active" data-view="homeView"><i class="fa-regular fa-comments nav-outline"></i><i class="fa-solid fa-comments nav-filled"></i><span>Chats</span><b id="navChatBadge" class="nav-badge hidden">0</b></button>
     <button class="nav-item" data-view="peopleView"><i class="fa-solid fa-users nav-outline"></i><i class="fa-solid fa-users nav-filled"></i><span>People</span><b id="navPeopleBadge" class="nav-badge hidden">0</b></button>
-    <button class="nav-item" data-view="groupsView"><i class="fa-solid fa-user-group nav-outline"></i><i class="fa-solid fa-user-group nav-filled"></i><span>Groups</span></button>
     <button id="navFab" class="nav-fab" title="New chat"><span><i class="fa-solid fa-plus"></i></span></button>
     <button class="nav-item" data-view="profileView"><i class="fa-regular fa-user nav-outline"></i><i class="fa-solid fa-user nav-filled"></i><span>Profile</span></button>
     <button class="nav-item" data-view="settingsView"><i class="fa-solid fa-gear nav-outline"></i><i class="fa-solid fa-gear nav-filled"></i><span>Settings</span></button>
@@ -242,15 +232,6 @@
   <label>Photo URL<input id="editPhoto" type="url" placeholder="https://..."></label>
   <label>Bio<textarea id="editBio" maxlength="300" rows="3"></textarea></label>
   <button id="saveProfile" class="primary-btn">Save changes</button>
-</div></div>
-
-<div id="groupModal" class="modal hidden"><div class="modal-card group-create-card">
-  <button class="modal-close" data-close="groupModal"><i class="fa-solid fa-xmark"></i></button>
-  <h3>নতুন গ্রুপ তৈরি করুন</h3>
-  <label>গ্রুপের নাম<input id="groupNameInput" maxlength="80" placeholder="যেমন: বন্ধুরা"></label>
-  <div class="group-member-head"><b>বন্ধু নির্বাচন করুন</b><small id="groupMemberCount">0 জন নির্বাচিত</small></div>
-  <div id="groupFriendPicker" class="group-friend-picker"></div>
-  <button id="saveGroupBtn" class="primary-btn"><i class="fa-solid fa-users"></i> গ্রুপ তৈরি করুন</button>
 </div></div>
 
 <div id="userModal" class="modal hidden"><div class="modal-card user-card">
