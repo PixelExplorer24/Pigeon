@@ -9,12 +9,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="./assets/css/app.css?v=4">
+<link rel="stylesheet" href="./assets/css/app.css?v=5">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
-<body>
+<body class="booting">
 <div id="offlineBar" class="offline-bar hidden"><i class="fa-solid fa-wifi"></i><span>Offline mode — saved chats are available</span></div>
 <div id="syncBar" class="sync-bar hidden"><i class="fa-solid fa-rotate"></i><span id="syncText">Syncing…</span></div>
 <div id="pullRefresh" class="pull-refresh"><i class="fa-solid fa-arrow-down"></i><span>Pull to refresh</span></div>
@@ -38,8 +38,7 @@
         <div><b>Fast Messenger</b><span>Private • Realtime</span></div>
       </div>
       <div class="top-actions">
-        <button id="newChatBtn" class="round-btn" title="New chat"><i class="fa-solid fa-pen-to-square"></i></button>
-        <button id="profileBtn" class="avatar-btn" title="Profile"><img id="headerAvatar" alt="Profile"><span id="headerOnline"></span></button>
+                <button id="profileBtn" class="avatar-btn" title="Profile"><img id="headerAvatar" alt="Profile"><span id="headerOnline"></span></button>
         <button id="menuBtn" class="round-btn" title="Menu"><i class="fa-solid fa-ellipsis-vertical"></i></button>
       </div>
     </div>
@@ -149,7 +148,7 @@
             <span class="settings-copy"><b>সাপোর্ট / মতামত</b><small>সমস্যা বা feedback সরাসরি support email-এ পাঠান</small></span>
             <i class="fa-solid fa-chevron-right"></i>
           </button>
-          <div class="support-note">Support email: <b id="supportEmailLabel">hkhshahdot24@gmail.com</b></div>
+          <div class="support-note">Support email: <b id="supportEmailLabel">hkshahadot24@gmail.com</b></div>
         </div>
       </div>
     </section>
@@ -159,7 +158,6 @@
     <button class="nav-item active" data-view="homeView"><i class="fa-regular fa-comments nav-outline"></i><i class="fa-solid fa-comments nav-filled"></i><span>Chats</span><b id="navChatBadge" class="nav-badge hidden">0</b></button>
     <button class="nav-item" data-view="peopleView"><i class="fa-solid fa-users nav-outline"></i><i class="fa-solid fa-users nav-filled"></i><span>People</span><b id="navPeopleBadge" class="nav-badge hidden">0</b></button>
     <button class="nav-item" data-view="groupsView"><i class="fa-solid fa-user-group nav-outline"></i><i class="fa-solid fa-user-group nav-filled"></i><span>Groups</span></button>
-    <button id="navFab" class="nav-fab" title="New chat"><span><i class="fa-solid fa-plus"></i></span></button>
     <button class="nav-item" data-view="profileView"><i class="fa-regular fa-user nav-outline"></i><i class="fa-solid fa-user nav-filled"></i><span>Profile</span></button>
     <button class="nav-item" data-view="settingsView"><i class="fa-solid fa-gear nav-outline"></i><i class="fa-solid fa-gear nav-filled"></i><span>Settings</span></button>
   </nav>
@@ -215,7 +213,7 @@
     <h4>সাহায্য ও পরামর্শ</h4>
     <p>অ্যাপটি ব্যবহার করতে গিয়ে আপনি যদি কোনো সমস্যার সম্মুখীন হন, কিংবা অ্যাপটির উন্নতিতে আপনার কোনো মূল্যবান পরামর্শ থাকে, তাহলে নির্দ্বিধায় আমাদের সঙ্গে যোগাযোগ করতে পারেন।</p>
     <p>আপনাদের যেকোনো <b>গঠনমূলক মতামত, পরামর্শ ও সমস্যার কথা</b> আমরা সাদরে গ্রহণ করি এবং যথাসম্ভব দ্রুত সমাধানের চেষ্টা করি।</p>
-    <div class="support-contact"><span>📧</span><div><small>ইমেইল</small><b>hkhshahdot24@gmail.com</b></div></div>
+    <div class="support-contact"><span>📧</span><div><small>ইমেইল</small><b>hkshahadot24@gmail.com</b></div></div>
     <p class="about-note"><b>বিঃদ্রঃ</b> ইমেইল করার সময় Subject লাইনে আপনার সমস্যাটি সংক্ষেপে উল্লেখ করলে বিষয়টি বুঝতে এবং দ্রুত সমাধান দিতে আমাদের সুবিধা হবে।</p>
   </div>
   <button id="aboutEmailBtn" class="primary-btn about-email-btn"><i class="fa-regular fa-envelope"></i> ইমেইল করুন</button>
@@ -261,7 +259,7 @@
 </div></div>
 
 <div id="lightbox" class="lightbox hidden"><button id="closeLightbox"><i class="fa-solid fa-xmark"></i></button><img id="lightboxImg" alt=""></div>
-<script src="./assets/js/app.js?v=4"></script>
+<script src="./assets/js/app.js?v=5"></script>
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(console.warn));
