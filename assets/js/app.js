@@ -3,9 +3,9 @@ firebase.initializeApp(firebaseConfig);
 const auth=firebase.auth(),db=firebase.firestore(),APP="pigeon-7a637";
 const ROOT=()=>db.collection("artifacts").doc(APP).collection("public").doc("data");
 const USERS=()=>ROOT().collection("users"),FRIENDS=()=>ROOT().collection("friends"),REQUESTS=()=>ROOT().collection("friendRequests"),MESSAGES=()=>ROOT().collection("messages");
-const IMG_BB_KEY="1abc9f66636c45ace1d0952e080d153d";
-const GOFILE_ENDPOINT="https://upload.gofile.io/uploadfile";
-let me=null,profile=null,users=[],friends=[],requests=[],sentRequests=[],activeFriend=null,chatUnsubs=[],listUnsubs=[],typingUnsub=null,typingTimer=null,attachedImages=[],attachedFile=null,messageMap=new Map(),peopleTab="friends";
+const IMAGE_UPLOAD_KEY="1abc9f66636c45ace1d0952e080d153d";
+const FILE_UPLOAD_ENDPOINT="https://upload.gofile.io/uploadfile";
+let me=null,profile=null,users=[],friends=[],requests=[],sentRequests=[],activeFriend=null,chatUnsubs=[],listUnsubs=[],typingUnsub=null,typingTimer=null,attachedImages=[],attachedFiles=[],messageMap=new Map(),peopleTab="friends";
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 const avatar=u=>u?.photoURL||"https://placehold.co/120x120/e5e7eb/64748b?text=U";
 const pair=(a,b)=>[a,b].sort().join("__");
@@ -39,7 +39,34 @@ async function updateStats(){if(!me)return;const msgs=await getLatestMessages();
 window.openUser=uid=>{const u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);if(!u)return;$("userModalAvatar").src=avatar(u);$("userModalName").textContent=u.displayName||"User";$("userModalEmail").textContent=u.email||"";$("userModalBio").textContent=u.bio||"No bio added.";$("userModalChat").onclick=()=>{closeAllModals();openChat(uid)};$("userModal").classList.remove("hidden")};
 
 function subscribeChat(uid){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];const ref=MESSAGES();chatUnsubs.push(ref.where("senderUid","==",me.uid).where("receiverUid","==",uid).onSnapshot(renderMessages));chatUnsubs.push(ref.where("senderUid","==",uid).where("receiverUid","==",me.uid).onSnapshot(renderMessages))}
-async function renderMessages(){if(!activeFriend)return;const[a,b]=await Promise.all([MESSAGES().where("senderUid","==",me.uid).where("receiverUid","==",activeFriend.uid).get(),MESSAGES().where("senderUid","==",activeFriend.uid).where("receiverUid","==",me.uid).get()]);const arr=[...a.docs,...b.docs].map(d=>({id:d.id,...d.data()})).sort((x,y)=>(x.createdAt?.toMillis?.()||0)-(y.createdAt?.toMillis?.()||0));const box=$("messages");box.innerHTML=arr.length?arr.map(m=>{const mine=m.senderUid===me.uid,imgs=m.imageUrls||[],file=m.fileUrl?`<a class="file-card" href="${esc(m.fileUrl)}" target="_blank" rel="noopener"><span class="file-icon"><i class="fa-solid fa-file-arrow-down"></i></span><span class="file-copy"><b>${esc(m.fileName||"Shared file")}</b><small>${esc(m.fileSize?bytes(m.fileSize):"GoFile")}</small></span><i class="fa-solid fa-arrow-up-right-from-square file-download"></i></a>`:"";return`<div class="msg-row ${mine?"mine":"theirs"}"><div class="bubble">${m.text?`<div>${esc(m.text).replace(/\n/g,"<br>")}</div>`:""}${imgs.map(u=>`<img class="msg-img" src="${esc(u)}" onclick="showImage('${esc(u)}')">`).join("")}${file}<div class="msg-time">${time(m.createdAt)} ${mine?"✓":""}</div></div></div>`}).join(""):`<div class="empty" style="margin-top:30px">এখানে আপনার private conversation শুরু হবে।</div>`;box.scrollTop=box.scrollHeight}
+async function renderMessages(){
+  if(!activeFriend)return;
+  const[a,b]=await Promise.all([
+    MESSAGES().where("senderUid","==",me.uid).where("receiverUid","==",activeFriend.uid).get(),
+    MESSAGES().where("senderUid","==",activeFriend.uid).where("receiverUid","==",me.uid).get()
+  ]);
+  const arr=[...a.docs,...b.docs].map(d=>({id:d.id,...d.data()}))
+    .sort((x,y)=>(x.createdAt?.toMillis?.()||0)-(y.createdAt?.toMillis?.()||0));
+  const box=$("messages");
+  const escUrl=u=>esc(u||"");
+  box.innerHTML=arr.length?arr.map(m=>{
+    const mine=m.senderUid===me.uid,imgs=m.imageUrls||[];
+    const legacyFile=m.fileUrl?[{downloadPage:m.fileUrl,id:m.fileId,name:m.fileName,size:m.fileSize,mimetype:m.fileMime}]:[];
+    const files=[...(Array.isArray(m.files)?m.files:[]),...legacyFile];
+    const uniqueFiles=files.filter((f,i,a)=>f.downloadPage&&a.findIndex(x=>x.downloadPage===f.downloadPage)===i);
+    return`<div class="msg-row ${mine?"mine":"theirs"}"><div class="bubble">
+      ${m.text?`<div>${esc(m.text).replace(/\n/g,"<br>")}</div>`:""}
+      ${imgs.map(u=>`<img class="msg-img" src="${escUrl(u)}" onclick="showImage('${escUrl(u)}')">`).join("")}
+      ${uniqueFiles.map(f=>`<a class="file-card" href="${escUrl(f.downloadPage)}" target="_blank" rel="noopener">
+        <span class="file-icon"><i class="fa-solid fa-file-arrow-down"></i></span>
+        <span class="file-copy"><b>${esc(f.name||"Shared file")}</b><small>${esc(f.size?bytes(f.size):"File")}</small></span>
+        <i class="fa-solid fa-arrow-up-right-from-square file-download"></i>
+      </a>`).join("")}
+      <div class="msg-time">${time(m.createdAt)} ${mine?"✓":""}</div>
+    </div></div>`;
+  }).join(""):`<div class="empty" style="margin-top:30px">এখানে আপনার private conversation শুরু হবে।</div>`;
+  box.scrollTop=box.scrollHeight;
+}
 window.showImage=url=>{$("lightboxImg").src=url;$("lightbox").classList.remove("hidden")};
 function setChatHeader(u){$("chatName").textContent=u.displayName||"User";$("chatAvatar").src=avatar(u);$("chatStatus").textContent=u.online?"online":`last seen ${time(u.lastSeen)}`;$("chatPresence").classList.toggle("online",!!u.online)}
 async function openChat(uid){
@@ -47,46 +74,73 @@ async function openChat(uid){
 function closeChat(){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];if(typingUnsub)typingUnsub();typingUnsub=null;activeFriend=null;$("chatPanel")?.classList.add("hidden");document.body.style.overflow="";attachedImages=[];attachedFile=null;renderUploadQueue()}
 function watchTyping(){if(!activeFriend)return;if(typingUnsub)typingUnsub();typingUnsub=USERS().doc(activeFriend.uid).onSnapshot(s=>{$("typing").classList.toggle("hidden",(s.data()||{}).typingTo!==me.uid)})}
 
-async function uploadImage(file,onProgress){if(file.size>32*1024*1024)throw new Error("Image 32MB-এর বেশি হতে পারবে না");const fd=new FormData();fd.append("image",file);const r=await fetch(`https://api.imgbb.com/1/upload?key=${IMG_BB_KEY}`,{method:"POST",body:fd});const j=await r.json();if(!j.success)throw new Error("ImgBB upload failed");if(onProgress)onProgress(100);return j.data.url}
+async function uploadImage(file,onProgress){if(file.size>32*1024*1024)throw new Error("Image 32MB-এর বেশি হতে পারবে না");const fd=new FormData();fd.append("image",file);const r=await fetch(`https://api.imgbb.com/1/upload?key=${IMAGE_UPLOAD_KEY}`,{method:"POST",body:fd});const j=await r.json();if(!j.success)throw new Error("ছবি আপলোড করা যায়নি");if(onProgress)onProgress(100);return j.data.url}
 
-async function uploadGoFile(file,onProgress){
+async function uploadFile(file,onProgress){
   const fd=new FormData();fd.append("file",file);
-  const r=await fetch(GOFILE_ENDPOINT,{method:"POST",body:fd});
+  const r=await fetch(FILE_UPLOAD_ENDPOINT,{method:"POST",body:fd});
   const j=await r.json().catch(()=>null);
-  if(!r.ok||!j||j.status!=="ok")throw new Error(j?.status||"GoFile upload failed");
+  if(!r.ok||!j||j.status!=="ok")throw new Error(j?.status||"ফাইল আপলোড করা যায়নি");
   if(onProgress)onProgress(100);
   return j.data;
 }
 
 function renderUploadQueue(){
-  const box=$("uploadQueue"),items=[...attachedImages.map((f,i)=>({f,type:"image",i})),...(attachedFile?[{f:attachedFile,type:"file",i:0}]:[])];
+  const box=$("uploadQueue");
+  const items=[
+    ...attachedImages.map((f,i)=>({f,type:"image",i})),
+    ...attachedFiles.map((f,i)=>({f,type:"file",i}))
+  ];
   box.classList.toggle("hidden",!items.length);
-  box.innerHTML=items.map(x=>`<div class="queue-chip"><span class="queue-thumb">${x.type==="image"?`<img src="${URL.createObjectURL(x.f)}" style="width:34px;height:34px;border-radius:7px;object-fit:cover">`:`<i class="fa-solid fa-file-arrow-up"></i>`}</span><span class="queue-copy"><b>${esc(x.f.name)}</b><small>${bytes(x.f.size)}</small><span class="progress"><i></i></span></span></div>`).join("");
+  box.innerHTML=items.map(x=>`<div class="queue-chip">
+    <span class="queue-thumb">${x.type==="image"
+      ?`<img src="${URL.createObjectURL(x.f)}" style="width:34px;height:34px;border-radius:7px;object-fit:cover">`
+      :`<i class="fa-solid fa-file-arrow-up"></i>`}</span>
+    <span class="queue-copy"><b>${esc(x.f.name)}</b><small>${bytes(x.f.size)}</small><span class="progress"><i></i></span></span>
+  </div>`).join("");
 }
 async function sendMessage(e){
   e.preventDefault();if(!activeFriend||!me)return;
   const input=$("messageInput"),text=input.value.trim();
-  if(!text&&!attachedImages.length&&!attachedFile)return;
+  if(!text&&!attachedImages.length&&!attachedFiles.length)return;
   const btn=document.querySelector(".send-btn");btn.disabled=true;
   try{
     const imageUrls=[];
-    for(const f of attachedImages){toast("ImgBB-তে ছবি আপলোড হচ্ছে…");imageUrls.push(await uploadImage(f))}
-    let fileData=null;
-    if(attachedFile){toast("GoFile-এ ফাইল আপলোড হচ্ছে…");fileData=await uploadGoFile(attachedFile)}
+    for(const f of attachedImages){
+      toast("ছবি আপলোড হচ্ছে…");
+      imageUrls.push(await uploadImage(f));
+    }
+    const fileDatas=[];
+    for(const f of attachedFiles){
+      toast("ফাইল আপলোড হচ্ছে…");
+      fileDatas.push(await uploadFile(f));
+    }
+    const firstFile=fileDatas[0]||null;
     await MESSAGES().add({
       senderUid:me.uid,receiverUid:activeFriend.uid,text,imageUrls,
       imageUrl:imageUrls[0]||"",
-      fileUrl:fileData?.downloadPage||"",
-      fileId:fileData?.id||"",
-      fileName:fileData?.name||attachedFile?.name||"",
-      fileSize:fileData?.size||attachedFile?.size||0,
-      fileMime:fileData?.mimetype||attachedFile?.type||"",
-      fileHost:fileData?"gofile":"",
+      files:fileDatas.map(x=>({
+        downloadPage:x.downloadPage||"",
+        id:x.id||"",
+        name:x.name||"",
+        size:x.size||0,
+        mimetype:x.mimetype||""
+      })),
+      fileUrl:firstFile?.downloadPage||"",
+      fileId:firstFile?.id||"",
+      fileName:firstFile?.name||"",
+      fileSize:firstFile?.size||0,
+      fileMime:firstFile?.mimetype||"",
+      fileHost:fileDatas.length?"external":"",
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),seen:false
     });
-    input.value="";input.style.height="auto";attachedImages=[];attachedFile=null;renderUploadQueue();$("attachMenu").classList.add("hidden");toast("Message sent");
-  }catch(err){console.error(err);toast(err.message==="Failed to fetch"?"Upload service blocked or offline":(err.message||"Message পাঠানো যায়নি"))}
-  finally{btn.disabled=false;input.focus()}
+    input.value="";input.style.height="auto";
+    attachedImages=[];attachedFiles=[];
+    renderUploadQueue();toast("Message sent");
+  }catch(err){
+    console.error(err);
+    toast(err.message==="Failed to fetch"?"Upload service blocked or offline":(err.message||"Message পাঠানো যায়নি"));
+  }finally{btn.disabled=false;input.focus()}
 }
 function handleTyping(){if(!activeFriend)return;clearTimeout(typingTimer);USERS().doc(me.uid).set({typingTo:activeFriend.uid,typingAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).catch(()=>{});typingTimer=setTimeout(()=>USERS().doc(me.uid).set({typingTo:null},{merge:true}).catch(()=>{}),1200)}
 async function saveProfile(){const name=$("editName").value.trim();if(!name)return;try{const photo=$("editPhoto").value.trim()||null,bio=$("editBio").value.trim();await USERS().doc(me.uid).set({displayName:name,photoURL:photo,bio,profileUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});profile={...profile,displayName:name,photoURL:photo,bio};syncProfile();closeAllModals();toast("Profile updated")}catch(e){toast("Profile save হয়নি")}}
@@ -249,7 +303,7 @@ function installPullToRefresh(){
   });
 }
 
-const SUPPORT_EMAIL="YOUR_SUPPORT_EMAIL@example.com";
+const SUPPORT_EMAIL="hkhshahdot24@gmail.com";
 const DEFAULT_APP_URL=window.location.href.split("#")[0];
 
 function syncMenu(){
@@ -346,12 +400,18 @@ $("refreshBtn").onclick=()=>{renderChats();renderPeople();toast("Refreshed")};
 $("newChatBtn").onclick=()=>{showView("peopleView");peopleTab="all";document.querySelectorAll("[data-people-tab]").forEach(x=>x.classList.toggle("active",x.dataset.peopleTab==="all"));renderPeople();$("peopleSearch").focus()};
 $("backChat").onclick=closeChat;$("composer").onsubmit=sendMessage;
 $("messageInput").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";handleTyping()});
-$("attachBtn").onclick=()=>{$("attachMenu").classList.toggle("hidden")};
-document.addEventListener("click",e=>{if(!$("attachMenu").contains(e.target)&&!$("attachBtn").contains(e.target))$("attachMenu").classList.add("hidden")});
-$("pickImage").onclick=()=>{$("imageInput").click();$("attachMenu").classList.add("hidden")};
-$("pickFile").onclick=()=>{$("fileInput").click();$("attachMenu").classList.add("hidden")};
-$("imageInput").onchange=e=>{attachedImages=[...attachedImages,...Array.from(e.target.files||[]).filter(f=>f.type.startsWith("image/"))].slice(0,5);e.target.value="";renderUploadQueue()};
-$("fileInput").onchange=e=>{attachedFile=e.target.files?.[0]||null;e.target.value="";renderUploadQueue()};
+$("pickImage").onclick=()=>$("imageInput").click();
+$("pickFile").onclick=()=>$("fileInput").click();
+$("imageInput").onchange=e=>{
+  const incoming=Array.from(e.target.files||[]).filter(f=>f.type.startsWith("image/"));
+  attachedImages=[...attachedImages,...incoming].slice(0,10);
+  e.target.value="";renderUploadQueue();
+};
+$("fileInput").onchange=e=>{
+  const incoming=Array.from(e.target.files||[]);
+  attachedFiles=[...attachedFiles,...incoming].slice(0,10);
+  e.target.value="";renderUploadQueue();
+};
 $("profileBtn").onclick=()=>showProfile();
 $("settingsFromProfile").onclick=showSettings;
 
@@ -380,9 +440,16 @@ $("navFab").onclick=()=>{$("newChatBtn").click()};
 $("settingsBack").onclick=()=>showView("profileView");
 $("themeToggle").onchange=e=>applyTheme(e.target.checked);
 $("notificationToggle").onchange=e=>applyNotifications(e.target.checked);
+$("aboutBtn").onclick=()=>$("aboutModal").classList.remove("hidden");
+$("aboutEmailBtn").onclick=supportEmail;
 $("privacyBtn").onclick=()=>$("privacyModal").classList.remove("hidden");
 $("clearCacheBtn").onclick=clearCache;
 $("supportBtn").onclick=supportEmail;
+$("accountManagementBtn").onclick=()=>{
+  const b=$("accountManagementBtn"),panel=$("accountManagementPanel");
+  const open=panel.classList.toggle("hidden")===false;
+  b.setAttribute("aria-expanded",open?"true":"false");
+};
 $("deleteAccountBtn").onclick=confirmDeleteAccount;
 
 // In-app alert/sound for new incoming messages.
