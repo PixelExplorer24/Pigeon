@@ -899,7 +899,7 @@ window.filterUsers = function() {
                 const messages=[]; a.forEach(d=>messages.push({id:d.id,...d.data()})); b.forEach(d=>messages.push({id:d.id,...d.data()}));
                 messages.sort((x,y)=>{const tx=x.createdAt?.toMillis?x.createdAt.toMillis():(x.createdAt||0),ty=y.createdAt?.toMillis?y.createdAt.toMillis():(y.createdAt||0);return tx-ty;}); messageCache=messages;
                 const box=document.getElementById('friendMessageList'); if(!box)return;
-                box.innerHTML=messages.map(m=>{const mine=m.senderUid===currentUser.uid; const imgs=Array.isArray(m.imageUrls)?m.imageUrls:(m.imageUrl?[m.imageUrl]:[]); return `<div class="message-row ${mine?'mine':'theirs'}"><div class="message-bubble ${mine?'mine':'theirs'}">${m.text?`<div class="whitespace-pre-wrap break-words">${escapeHtmlSafe(m.text)}</div>`:''}${imgs.length?`<div class="chat-message-images">${imgs.map(u=>`<img src="${escapeHtmlSafe(u)}" alt="Shared image" loading="lazy" onclick="window.open(this.src,'_blank')">`).join('')}</div>`:''}${Array.isArray(m.fileAttachments)&&m.fileAttachments.length?`<div class="chat-file-list">${m.fileAttachments.map(f=>`<a class="chat-file-card" href="${escapeHtmlSafe(f.downloadPage||f.directLink||f.url||'#')}" target="_blank" rel="noopener"><i class="fa-solid fa-file-arrow-down"></i><span><strong>${escapeHtmlSafe(f.name||'File')}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))}</small></span></a>`).join('')}</div>`:''}<div class="message-meta"><span>${escapeHtmlSafe(formatMessageTime(m.createdAt))}</span>${mine?`<button type="button" onclick="deleteDirectMessage('${m.id}')" class="message-delete">Delete</button>`:''}</div></div></div>`}).join('')||'<div style="text-align:center;color:#aab7c4;font-size:12px;padding:32px 8px">No messages yet. Start the private conversation.</div>';
+                box.innerHTML=messages.map(m=>{const mine=m.senderUid===currentUser.uid; const imgs=Array.isArray(m.imageUrls)?m.imageUrls:(m.imageUrl?[m.imageUrl]:[]); return `<div class="message-row ${mine?'mine':'theirs'}"><div class="message-bubble ${mine?'mine':'theirs'}">${m.text?`<div class="whitespace-pre-wrap break-words">${escapeHtmlSafe(m.text)}</div>`:''}${imgs.length?`<div class="chat-message-images">${imgs.map(u=>`<img src="${escapeHtmlSafe(u)}" alt="Shared image" loading="lazy" onclick="window.open(this.src,'_blank')">`).join('')}</div>`:''}${Array.isArray(m.fileAttachments)&&m.fileAttachments.length?`<div class="chat-file-list">${m.fileAttachments.map(f=>{const fileUrl=f.directLink||f.url||f.downloadPage||'';const fileName=f.name||'File';return `<div class="chat-file-card"><i class="fa-solid fa-file-lines"></i><span><strong>${escapeHtmlSafe(fileName)}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))}</small></span><button type="button" class="file-download-btn" title="Download file" aria-label="Download ${escapeHtmlSafe(fileName)}" onclick="downloadRemoteFile(decodeURIComponent('${encodeURIComponent(fileUrl)}'),decodeURIComponent('${encodeURIComponent(fileName)}'))"><i class="fa-solid fa-download"></i><span>Download</span></button></div>`}).join('')}</div>`:''}<div class="message-meta"><span>${escapeHtmlSafe(formatMessageTime(m.createdAt))}</span>${mine?`<button type="button" onclick="deleteDirectMessage('${m.id}')" class="message-delete">Delete</button>`:''}</div></div></div>`}).join('')||'<div style="text-align:center;color:#aab7c4;font-size:12px;padding:32px 8px">No messages yet. Start the private conversation.</div>';
                 box.scrollTop=box.scrollHeight;
             };
             unsubscribeMessagesA=msgRef.where('senderUid','==',currentUser.uid).where('receiverUid','==',uid).onSnapshot(render,console.error);
@@ -1188,8 +1188,6 @@ window.filterUsers = function() {
         let pigeonAnimationFrame = null;
         let lastTelemetryPaint = 0;
         let lastFollowCenter = 0;
-        let mapFollowMode = false;
-        let mapProgrammaticCameraMove = false;
 
         // Fetch / Refresh Pigeons
         function fetchPigeonsList() {
@@ -1388,7 +1386,7 @@ let selectedFileBlobs = [];
         function clearImageAttachment() { selectedFileBlobs=[]; renderAttachmentList(); }
         window.clearImageAttachment=clearImageAttachment;
 
-// Production ImgBB Upload with hardcoded API key
+// Download a stored attachment directly to the device. The GoFile download page is never opened.\n        // Browsers choose the user's configured Downloads location; a web page cannot force a custom system folder.\n        window.downloadRemoteFile = async function(url, fileName) {\n            if (!url || url === '#') { alert('This file does not have a direct download link.'); return; }\n            const safeName = fileName || 'download';\n            try {\n                const response = await fetch(url, { mode: 'cors', credentials: 'omit' });\n                if (!response.ok) throw new Error(`Download failed (${response.status})`);\n                const blob = await response.blob();\n                const blobUrl = URL.createObjectURL(blob);\n                const a = document.createElement('a');\n                a.href = blobUrl;\n                a.download = safeName;\n                a.style.display = 'none';\n                document.body.appendChild(a);\n                a.click();\n                a.remove();\n                setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);\n            } catch (err) {\n                console.warn('Direct blob download unavailable; using direct file URL:', err);\n                // Fallback still goes to the direct file URL, not the GoFile download page.\n                const a = document.createElement('a');\n                a.href = url;\n                a.download = safeName;\n                a.target = '_blank';\n                a.rel = 'noopener';\n                document.body.appendChild(a);\n                a.click();\n                a.remove();\n            }\n        };\n\n        // Production ImgBB Upload with hardcoded API key
         async function uploadToImgBB(file) {
             const userApiKey = "1abc9f66636c45ace1d0952e080d153d"; 
             
@@ -1511,42 +1509,28 @@ let selectedFileBlobs = [];
         async function loadRoadRoute(pigeon) {
             if (!pigeon?.senderCoords || !pigeon?.receiverCoords || !leafletMap) return;
 
+            // Flight path is intentionally NOT road-based.
+            // A carrier pigeon flies in a direct great-circle/straight-line path
+            // between the saved sender and receiver coordinates.
             const key = getRoadRouteKey(pigeon);
             if (key === roadRouteKey && roadRouteCoordinates.length > 1) {
                 updateRoadRouteLine(pigeon);
                 return;
             }
-            if (roadRouteLoading) return;
 
-            roadRouteLoading = true;
-            try {
-                // Visible route follows the real road network between sender and receiver.
-                const start = `${Number(pigeon.senderCoords.lng)},${Number(pigeon.senderCoords.lat)}`;
-                const end = `${Number(pigeon.receiverCoords.lng)},${Number(pigeon.receiverCoords.lat)}`;
-                const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start};${end}?alternatives=false&geometries=geojson&overview=full&steps=false&access_token=${encodeURIComponent(MAPBOX_PUBLIC_TOKEN)}`;
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`Mapbox Directions HTTP ${response.status}`);
-                const data = await response.json();
-                const coords = data?.routes?.[0]?.geometry?.coordinates;
-                if (!Array.isArray(coords) || coords.length < 2) throw new Error('No road route returned');
+            roadRouteCoordinates = [
+                [Number(pigeon.senderCoords.lng), Number(pigeon.senderCoords.lat)],
+                [Number(pigeon.receiverCoords.lng), Number(pigeon.receiverCoords.lat)]
+            ];
+            roadRouteKey = key;
+            updateRoadRouteLine(pigeon);
 
-                roadRouteCoordinates = coords.map(c => [Number(c[0]), Number(c[1])]);
-                roadRouteKey = key;
-                updateRoadRouteLine(pigeon);
-
-                // Important: loading a route must never reset the user's map camera.
-                // The map is focused only when the user explicitly selects a pigeon.
-            } catch (error) {
-                // Keep a visible sender → receiver line even if the routing API is unavailable.
-                console.warn('Road routing unavailable; using direct sender-to-receiver marking.', error);
-                roadRouteCoordinates = [
-                    [Number(pigeon.senderCoords.lng), Number(pigeon.senderCoords.lat)],
-                    [Number(pigeon.receiverCoords.lng), Number(pigeon.receiverCoords.lat)]
-                ];
-                roadRouteKey = key;
-                updateRoadRouteLine(pigeon);
-            } finally {
-                roadRouteLoading = false;
+            if (activePigeonId === pigeon.id) {
+                const bounds = new mapboxgl.LngLatBounds(
+                    roadRouteCoordinates[0],
+                    roadRouteCoordinates[0]
+                ).extend(roadRouteCoordinates[1]);
+                leafletMap.fitBounds(bounds, { padding: 90, maxZoom: 14, duration: 900 });
             }
         }
 
@@ -1632,7 +1616,7 @@ let selectedFileBlobs = [];
                     style: 'mapbox://styles/mapbox/standard',
                     center: [90.4125, 23.8103],
                     zoom: 11,
-                    pitch: 45,
+                    pitch: 85,
                     antialias: true,
                     attributionControl: true,
                     projection: 'globe'
@@ -1649,20 +1633,6 @@ let selectedFileBlobs = [];
 
                 leafletMap.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-right');
 
-                // Manual map interaction always takes priority over tracking.
-                // This prevents accidental camera recentering while the pigeon is moving.
-                const releaseMapFollow = () => {
-                    if (mapProgrammaticCameraMove) return;
-                    if (mapFollowMode) {
-                        mapFollowMode = false;
-                        updateMapFollowButton();
-                    }
-                };
-                leafletMap.on('dragstart', releaseMapFollow);
-                leafletMap.on('zoomstart', releaseMapFollow);
-                leafletMap.on('rotatestart', releaseMapFollow);
-                leafletMap.on('pitchstart', releaseMapFollow);
-
                 const senderIcon = createMapboxMarkerElement(
                     `<div class="w-8 h-8 rounded-full bg-parchment-900 border-2 border-wax-gold text-wax-gold flex items-center justify-center shadow-lg text-xs"><i class="fa-solid fa-house-chimney"></i></div>`,
                     32, 32
@@ -1676,14 +1646,26 @@ let selectedFileBlobs = [];
             );
 
             const pigeonIcon = createMapboxMarkerElement(
-                `<div id="pigeonIconContainer" class="pigeon-photo-marker smart-pigeon-marker" title="Smart Carrier Pigeon" aria-label="Smart carrier pigeon in flight">
-                    <div class="pigeon-flight-aura"></div>
-                    <div class="pigeon-svg-wrap smart-pigeon-wrap">
-                        <img class="smart-pigeon-image" src="assets/images/smart-carrier-pigeon.png" alt="Carrier pigeon flying" draggable="false">
-                    </div>
-                    <div class="pigeon-flight-trail"></div>
+                `<div id="pigeonIconContainer" class="pigeon-photo-marker" title="Cine Pigeon in flight"
+                    style="width:230px;height:175px;position:relative;pointer-events:none;display:flex;align-items:center;justify-content:center;">
+                    <model-viewer
+                        id="cinePigeonModel"
+                        src="./assets/models/Cine_Pigeon_fly.glb"
+                        alt="Carrier pigeon in flight"
+                        camera-controls="false"
+                        interaction-prompt="none"
+                        disable-zoom
+                        disable-pan
+                        shadow-intensity="0.65"
+                        exposure="1.05"
+                        environment-image="neutral"
+                        camera-orbit="0deg 72deg 2.7m"
+                        field-of-view="28deg"
+                        style="width:230px;height:175px;background:transparent;pointer-events:none;--poster-color:transparent;">
+                    </model-viewer>
+                    <div class="pigeon-flight-trail" style="position:absolute;left:50%;bottom:5px;transform:translateX(-50%);"></div>
                 </div>`,
-                230, 150
+                230, 175
             );
             pigeon3DMarkerEl = pigeonIcon.querySelector('#pigeonIconContainer');
             if (pigeon3DMarkerEl) {
@@ -1698,12 +1680,7 @@ let selectedFileBlobs = [];
             receiverMarker = new mapboxgl.Marker({ element: receiverIcon, anchor: 'center' })
                 .setLngLat([0, 0]).addTo(leafletMap);
 
-                pigeonMarker = new mapboxgl.Marker({
-                    element: pigeonIcon,
-                    anchor: 'center',
-                    rotationAlignment: 'viewport',
-                    pitchAlignment: 'viewport'
-                })
+                pigeonMarker = new mapboxgl.Marker({ element: pigeonIcon, anchor: 'center' })
                     .setLngLat([0, 0]).addTo(leafletMap);
 
                 // Make the pigeon visually scale with Mapbox zoom.
@@ -1718,7 +1695,6 @@ let selectedFileBlobs = [];
 
                 leafletMap.on('zoom', updatePigeonZoomScale);
                 leafletMap.on('zoomend', updatePigeonZoomScale);
-                leafletMap.on('rotate', applyPigeonVisualTransform);
 
                 leafletMap.on('load', () => {
                     // Give the map a more dimensional, sky-tracking presentation.
@@ -1782,14 +1758,9 @@ let selectedFileBlobs = [];
         function applyPigeonVisualTransform() {
             if (!pigeon3DMarkerEl) return;
             const zoomScale = Number(pigeon3DMarkerEl.dataset.zoomScale || 1);
-            const geoBearing = Number(pigeon3DMarkerEl.dataset.bearing || 0);
-            // The generated pigeon faces screen-right (east) at 0deg.
-            // Convert geographic bearing (0=north, 90=east) to a screen angle,
-            // including the user's current map rotation, so it never flies backwards.
-            const mapBearing = leafletMap ? Number(leafletMap.getBearing() || 0) : 0;
-            const screenRotation = geoBearing - mapBearing - 90;
+            const currentRotation = Number(pigeon3DMarkerEl.dataset.bearing || 0);
             pigeon3DMarkerEl.style.transform =
-                `rotate(${screenRotation}deg) scale(${zoomScale})`;
+                `rotate(${currentRotation}deg) scale(${zoomScale})`;
         }
 
         function getAnimatedPigeonState(pigeon, now = Date.now()) {
@@ -1813,6 +1784,36 @@ let selectedFileBlobs = [];
             };
         }
 
+        let lastTrackingCameraUpdate = 0;
+        let trackingCameraBusy = false;
+
+        function updatePigeonTrackingCamera(pigeon, state, now = performance.now()) {
+            if (!leafletMap || !pigeon || !state || state.delivered) return;
+            // Keep the cinematic camera directly above the flying pigeon.
+            // Sender: camera looks in the flight direction, so the pigeon appears
+            // to leave the sender. Receiver: camera is reversed, so the pigeon
+            // visually approaches the receiver.
+            if (now - lastTrackingCameraUpdate < 450 || trackingCameraBusy) return;
+
+            const baseBearing = Number(state.bearing || 0);
+            const cameraBearing = pigeon.direction === 'incoming'
+                ? (baseBearing + 180) % 360
+                : baseBearing;
+
+            const current = [state.currentPos.lng, state.currentPos.lat];
+            trackingCameraBusy = true;
+            leafletMap.easeTo({
+                center: current,
+                bearing: cameraBearing,
+                pitch: 78,
+                zoom: Math.max(12.5, Math.min(16.5, leafletMap.getZoom() || 14)),
+                duration: 420,
+                easing: t => t
+            });
+            setTimeout(() => { trackingCameraBusy = false; }, 440);
+            lastTrackingCameraUpdate = now;
+        }
+
         function paintPigeonFrame(now = performance.now()) {
             if (!leafletMap || !activePigeonId || !window.pigeonsList) return;
             const pigeon = window.pigeonsList.find(p => p.id === activePigeonId);
@@ -1824,23 +1825,12 @@ let selectedFileBlobs = [];
             pigeonMarker.setLngLat([state.currentPos.lng, state.currentPos.lat]);
             pigeonMarker.getElement().style.display = 'block';
             if (pigeon3DMarkerEl) {
-                const previousBearing = Number(pigeon3DMarkerEl.dataset.bearing || state.bearing);
-                const delta = ((state.bearing - previousBearing + 540) % 360) - 180;
-                const smoothBearing = previousBearing + delta * 0.18;
-                pigeon3DMarkerEl.dataset.bearing = smoothBearing.toFixed(2);
-                applyPigeonVisualTransform();
+                // Map bearing: 0° = north. The pigeon is drawn facing north.
+                const zoomScale = Number(pigeon3DMarkerEl.dataset.zoomScale || 1);
+                pigeon3DMarkerEl.dataset.bearing = state.bearing.toFixed(2);
+                pigeon3DMarkerEl.style.transform =
+                    `rotate(${state.bearing}deg) scale(${zoomScale})`;
                 pigeon3DMarkerEl.style.opacity = state.delivered ? '0.72' : '1';
-
-                // Optional follow mode. It is OFF by default so the user can keep
-                // the map fixed anywhere while zooming/panning/rotating.
-                if (mapFollowMode && now - lastFollowCenter > 220 && !mapProgrammaticCameraMove) {
-                    lastFollowCenter = now;
-                    leafletMap.easeTo({
-                        center: [state.currentPos.lng, state.currentPos.lat],
-                        duration: 260,
-                        essential: true
-                    });
-                }
             }
 
             if (now - lastTelemetryPaint > 120) {
@@ -1859,7 +1849,7 @@ let selectedFileBlobs = [];
                 lastTelemetryPaint = now;
             }
 
-            if (roadRouteCoordinates.length > 1) updateRoadRouteLine(pigeon);
+            updatePigeonTrackingCamera(pigeon, state, now);
             pigeonAnimationFrame = requestAnimationFrame(paintPigeonFrame);
         }
 
@@ -2095,7 +2085,7 @@ let selectedFileBlobs = [];
                 const modalGrid=document.getElementById('modalImagesGrid');
                 const imageList=Array.isArray(letter.imageUrls)&&letter.imageUrls.length ? letter.imageUrls : (letter.imageUrl?[letter.imageUrl]:[]);
                 if(modalGrid) modalGrid.innerHTML=imageList.map(url=>`<img src="${escapeHtmlSafe(url)}" alt="Attachment" class="w-full h-40 object-cover rounded-lg border border-parchment-300" loading="lazy">`).join('');
-                const modalFiles=Array.isArray(letter.fileAttachments)?letter.fileAttachments:[]; const modalFileBox=document.getElementById('modalFilesGrid'); if(modalFileBox) modalFileBox.innerHTML=modalFiles.map(f=>`<a href="${escapeHtmlSafe(f.downloadPage||f.directLink||f.url||'#')}" target="_blank" rel="noopener" class="letter-file-card"><i class="fa-solid fa-file-arrow-down"></i><span><strong>${escapeHtmlSafe(f.name||'File')}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))} • ${escapeHtmlSafe(f.type||'')}</small></span></a>`).join('');
+                const modalFiles=Array.isArray(letter.fileAttachments)?letter.fileAttachments:[]; const modalFileBox=document.getElementById('modalFilesGrid'); if(modalFileBox) modalFileBox.innerHTML=modalFiles.map(f=>{const fileUrl=f.directLink||f.url||f.downloadPage||'';const fileName=f.name||'File';return `<div class="letter-file-card"><i class="fa-solid fa-file-lines"></i><span><strong>${escapeHtmlSafe(fileName)}</strong><small>${escapeHtmlSafe(formatBytes(f.size||0))} • ${escapeHtmlSafe(f.type||'')}</small></span><button type="button" class="file-download-btn" title="Download file" aria-label="Download ${escapeHtmlSafe(fileName)}" onclick="downloadRemoteFile(decodeURIComponent('${encodeURIComponent(fileUrl)}'),decodeURIComponent('${encodeURIComponent(fileName)}'))"><i class="fa-solid fa-download"></i><span>Download</span></button></div>`}).join('');
                 document.getElementById('modalDistance').innerText = `${Number(pigeon.distanceKm || 0).toFixed(1)} km`;
                 document.getElementById('modalSpeed').innerText = `${pigeon.pigeonSpeedKmh} km/h`;
                 document.getElementById('modalDispatchTime').innerText =
@@ -2275,64 +2265,25 @@ let selectedFileBlobs = [];
             const pigeon = window.pigeonsList?.find(p => p.id === pigeonId);
             if (!pigeon) return;
 
+            // Calculate the bird's current position without starting a follow mode.
+            // This is intentionally a one-time camera move: after the camera arrives,
+            // the user remains completely free to drag, zoom, rotate or pitch the map.
             const state = getAnimatedPigeonState(pigeon, Date.now());
             const pos = state?.currentPos || pigeon.senderCoords;
             if (!pos) return;
 
             const targetZoom = options.zoom ?? Math.max(5.5, Math.min(10.5, leafletMap.getZoom() || 7));
-            mapProgrammaticCameraMove = true;
+
             leafletMap.stop();
             leafletMap.flyTo({
                 center: [Number(pos.lng), Number(pos.lat)],
                 zoom: targetZoom,
-                duration: options.duration ?? 900,
+                duration: options.duration ?? 1100,
                 essential: true,
-                curve: 1.15,
-                speed: 1.2
-            });
-            leafletMap.once('moveend', () => {
-                mapProgrammaticCameraMove = false;
-                applyPigeonVisualTransform();
+                curve: 1.25,
+                speed: 1.1
             });
         }
-
-        function updateMapFollowButton() {
-            const btn = document.getElementById('mapFollowBtn');
-            if (!btn) return;
-            const label = btn.querySelector('.follow-label');
-            const icon = btn.querySelector('i');
-            if (mapFollowMode) {
-                btn.classList.add('is-following');
-                if (label) label.textContent = 'Following';
-                if (icon) icon.className = 'fa-solid fa-location-crosshairs';
-                btn.setAttribute('aria-pressed', 'true');
-                btn.title = 'Turn off follow mode';
-            } else {
-                btn.classList.remove('is-following');
-                if (label) label.textContent = 'Follow Pigeon';
-                if (icon) icon.className = 'fa-solid fa-location-arrow';
-                btn.setAttribute('aria-pressed', 'false');
-                btn.title = 'Follow the pigeon automatically';
-            }
-        }
-
-        function toggleMapFollowMode() {
-            if (!leafletMap || !activePigeonId) return;
-            mapFollowMode = !mapFollowMode;
-            updateMapFollowButton();
-            if (mapFollowMode) {
-                const pigeon = window.pigeonsList?.find(p => p.id === activePigeonId);
-                const state = pigeon ? getAnimatedPigeonState(pigeon, Date.now()) : null;
-                if (state?.currentPos) {
-                    leafletMap.easeTo({
-                        center: [state.currentPos.lng, state.currentPos.lat],
-                        duration: 450,
-                        essential: true
-                    });
-                }
-            }
-        }
-
 
         function trackPigeonOnMap(pigeonId) {
             const pigeon = window.pigeonsList.find(p => p.id === pigeonId);
@@ -2340,16 +2291,22 @@ let selectedFileBlobs = [];
             activePigeonId = pigeonId;
             roadRouteCoordinates = [];
             roadRouteKey = '';
-            mapFollowMode = false;
-            updateMapFollowButton();
             switchTab('map');
 
-            // Focus only once when the user explicitly selects a pigeon.
-            // After that, the map belongs entirely to the user unless Follow Pigeon is enabled.
-            requestAnimationFrame(() => {
+            // Once the Map tab is visible and Mapbox has resized, move the camera
+            // directly to the flying pigeon's current location. This is NOT a
+            // continuous follow: the user can freely move the map afterwards.
+            const focus = () => {
                 if (!leafletMap) return;
                 if (typeof leafletMap.resize === 'function') leafletMap.resize();
                 focusMapOnTrackedPigeon(pigeonId);
+            };
+
+            // switchTab initializes the map when necessary, so wait for the next
+            // frame and then focus. A second pass handles the first Mapbox render.
+            requestAnimationFrame(() => {
+                focus();
+                setTimeout(focus, 180);
             });
         }
 
