@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.24.0.js"></script>
 </head>
 <body class="booting">
 <div id="offlineBar" class="offline-bar hidden"><i class="fa-solid fa-wifi"></i><span>Offline mode — saved chats are available</span></div>
@@ -168,7 +169,11 @@
     <button id="backChat" class="round-btn ghost"><i class="fa-solid fa-arrow-left"></i></button>
     <div class="chat-person"><img id="chatAvatar" alt=""><span id="chatPresence" class="presence-dot"></span></div>
     <div class="chat-title"><b id="chatName">Chat</b><span id="chatStatus">offline</span></div>
+    <div class="call-actions">
+    <button id="audioCallBtn" class="round-btn ghost" title="অডিও কল"><i class="fa-solid fa-phone"></i></button>
+    <button id="videoCallBtn" class="round-btn ghost" title="ভিডিও কল"><i class="fa-solid fa-video"></i></button>
     <button id="chatInfo" class="round-btn ghost"><i class="fa-solid fa-circle-info"></i></button>
+  </div>
   </header>
   <div id="messages" class="messages"></div>
   <div id="typing" class="typing hidden"><span></span><span></span><span></span><em>typing...</em></div>
@@ -189,6 +194,72 @@
     </div>
   </form>
 </section>
+
+<div id="callInviteModal" class="modal hidden call-invite-modal">
+  <div class="modal-card call-invite-card">
+    <div class="call-invite-icon call-ringing-icon"><i class="fa-solid fa-phone-volume"></i></div>
+    <div class="incoming-avatar-ring" aria-hidden="true">
+      <span class="ring ring-1"></span><span class="ring ring-2"></span><span class="ring ring-3"></span>
+      <div class="incoming-avatar-core"><img id="incomingCallAvatar" class="call-avatar" alt=""></div>
+    </div>
+    <h3 id="incomingCallName">Incoming call</h3>
+    <p id="incomingCallType">অডিও কল</p>
+    <div class="call-invite-actions">
+      <button id="rejectCallBtn" class="call-btn decline"><i class="fa-solid fa-phone-slash"></i></button>
+      <button id="acceptCallBtn" class="call-btn accept"><i class="fa-solid fa-phone"></i></button>
+    </div>
+  </div>
+</div>
+
+<div id="cameraPreviewModal" class="camera-preview-modal hidden" role="dialog" aria-modal="true" aria-label="Video call preview">
+  <div class="camera-preview-shell">
+    <div class="camera-preview-top"><span><i class="fa-solid fa-video"></i> Video call preview</span><button id="closeCameraPreviewBtn" class="preview-icon-btn" title="Cancel"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="camera-preview-stage">
+      <video id="cameraPreviewVideo" autoplay playsinline muted></video>
+      <div id="cameraPreviewLight" class="camera-preview-light hidden"></div>
+      <div class="camera-preview-name"><span id="cameraPreviewTargetName">Video call</span><small>Check your camera and microphone before calling</small></div>
+      <div class="camera-preview-status"><span id="cameraPreviewStatus"><i class="fa-solid fa-circle"></i> Camera ready</span></div>
+    </div>
+    <div class="camera-preview-controls">
+      <button id="previewMuteBtn" class="preview-control active"><i class="fa-solid fa-microphone"></i><span>Mic</span></button>
+      <button id="previewFlipBtn" class="preview-control"><i class="fa-solid fa-camera-rotate"></i><span>Flip</span></button>
+      <button id="previewLightBtn" class="preview-control"><i class="fa-solid fa-sun"></i><span>Light</span></button>
+      <button id="startVideoCallBtn" class="preview-call-btn"><i class="fa-solid fa-video"></i><span>Start call</span></button>
+    </div>
+  </div>
+</div>
+
+<div id="callOverlay" class="call-overlay hidden">
+  <div class="call-shell">
+    <header class="call-header">
+      <div class="call-title-wrap">
+        <div class="call-mini-avatar"><img id="callHeaderAvatar" alt=""></div>
+        <div><b id="callHeaderName">Call</b><span id="callStatus">Connecting…</span><span id="callTimer" class="call-timer hidden" aria-live="polite">00:00</span></div>
+      </div>
+      <span id="callNetwork" class="call-network"><i class="fa-solid fa-signal"></i> Good</span>
+    </header>
+    <div id="remoteVideos" class="remote-videos"></div>
+    <div id="localVideoWrap" class="local-video-wrap hidden"><div id="localVideo"></div><span class="local-video-label">You</span></div>
+    <div id="callEmpty" class="call-empty"><i class="fa-solid fa-phone-volume"></i><span>কল সংযোগ হচ্ছে…</span></div>
+    <div id="audioOutputMenu" class="audio-output-menu hidden" role="menu" aria-label="Audio output">
+      <div class="audio-output-title"><i class="fa-solid fa-volume-high"></i><span>Audio output</span></div>
+      <div id="audioOutputDevices"></div>
+    </div>
+
+    <div id="callParticipantsPanel" class="call-participants-panel hidden" role="dialog" aria-label="Group call participants">
+      <div class="call-participants-head"><div><b>Call participants</b><small id="callParticipantsSub">0 participants</small></div><button id="closeCallParticipantsBtn" class="preview-icon-btn"><i class="fa-solid fa-xmark"></i></button></div>
+      <div id="callParticipantsList" class="call-participants-list"></div>
+    </div>
+    <div class="call-controls">
+      <button id="muteCallBtn" class="call-control"><i class="fa-solid fa-microphone"></i><span>Mute</span></button>
+      <button id="cameraCallBtn" class="call-control"><i class="fa-solid fa-video"></i><span>Camera</span></button>
+      <button id="speakerCallBtn" class="call-control active"><i class="fa-solid fa-volume-high"></i><span>Speaker</span></button>
+    <button id="callParticipantsBtn" class="call-control group-only-control hidden" title="Participants"><i class="fa-solid fa-user-group"></i><span>People</span><b id="callParticipantBadge" class="call-participant-badge">0</b></button>
+
+      <button id="endCallBtn" class="call-control end"><i class="fa-solid fa-phone-slash"></i><span>End</span></button>
+    </div>
+  </div>
+</div>
 
 <div id="moreMenu" class="more-menu hidden">
   <div class="more-menu-head"><img id="menuAvatar" alt=""><div><b id="menuName">User</b><small id="menuEmail"></small></div></div>

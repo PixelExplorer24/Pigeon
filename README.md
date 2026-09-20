@@ -13,3 +13,14 @@ Key fixes:
 - Dark-mode text overrides remain applied.
 - Support email: hkshahadot24@gmail.com
 - Navigation + floating action button is not present.
+
+
+## Agora Audio/Video Calling
+- Added Agora Web SDK 4.24.0 for friend and group audio/video calls.
+- Agora App ID configured: `addaf4af54e845beb818de869a7de813`.
+- Calls use Firestore `calls` documents for incoming-call invitations and group membership targeting.
+- The calling profile is optimized for constrained networks: Full-HD-capable 1920×1080 video at up to 30 FPS with adaptive network-quality monitoring; the browser/device may negotiate a lower effective quality on constrained networks, and network-quality feedback.
+- If Agora App Certificate/token authentication is enabled in the Agora Console, a secure token backend is required. Do not put an App Certificate in this client-side file.
+- Deploy the updated `firestore.rules` together with the app.
+
+- Stability fixes: avoids a Firestore composite-index dependency for incoming calls, prevents overlapping calls, preserves preview microphone state when switching cameras, cleans up call listeners, and safely reinitializes Agora client state.
