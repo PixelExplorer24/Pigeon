@@ -108,6 +108,16 @@ async function acceptRequest(id,uid){
 async function rejectRequest(id){try{const ref=REQUESTS().doc(id),snap=await ref.get();if(!snap.exists||snap.data()?.receiverUid!==me.uid)return toast("Request পাওয়া যায়নি");await ref.set({status:"rejected",respondedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});toast("Request declined")}catch(e){console.error(e);toast("কাজটি করা যায়নি")}}
 function updateRequestBadge(){const n=requests.length;["requestBadge","navPeopleBadge"].forEach(id=>{const e=$(id);e.textContent=n;e.classList.toggle("hidden",!n)})}
 function updateStats(){if(!me)return;const msgs=[...messageMap.values()];$("statChats").textContent=new Set(msgs.filter(m=>!m.groupId).map(m=>m.senderUid===me.uid?m.receiverUid:m.senderUid)).size;$("statFriends").textContent=friends.length;$("statSent").textContent=msgs.filter(m=>m.senderUid===me.uid).length}
+function setChatHeader(u){
+  const isGroup=!!u?.isGroup;
+  const name=isGroup?(u.name||"Group"):((u.displayName||u.email||"User"));
+  const photo=isGroup?"https://placehold.co/120x120/2563eb/ffffff?text=G":avatar(u);
+  $("chatAvatar").src=photo;
+  $("chatName").textContent=name;
+  $("chatStatus").textContent=isGroup?`${(u.memberUids||[]).length} জন সদস্য`:((u.online)?"online":"offline");
+  $("chatPresence").classList.toggle("online",!isGroup&&!!u.online);
+}
+
 window.openUser=uid=>{const u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);if(!u)return;$("userModalAvatar").src=avatar(u);$("userModalName").textContent=u.displayName||"User";$("userModalEmail").textContent=u.email||"";$("userModalBio").textContent=u.bio||"No bio added.";$("userModalChat").onclick=()=>{closeAllModals();openChat(uid)};$("userModal").classList.remove("hidden")};
 
 function subscribeChat(uid){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];const ref=MESSAGES();if(activeFriend?.isGroup){chatUnsubs.push(ref.where("groupId","==",uid).onSnapshot(renderMessages));}else{chatUnsubs.push(ref.where("senderUid","==",me.uid).where("receiverUid","==",uid).onSnapshot(renderMessages));chatUnsubs.push(ref.where("senderUid","==",uid).where("receiverUid","==",me.uid).onSnapshot(renderMessages));}}
@@ -144,8 +154,22 @@ function subscribeChat(uid){
   }
 }
 async function openChat(uid){
+  if(!me||!uid)return;
+  let u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);
+  if(!u){
+    const cached=[...messageMap.values()].find(m=>m.senderUid===uid||m.receiverUid===uid);
+    u={uid,displayName:cached?.senderUid===uid?cached.senderName:cached?.receiverName||"User",email:"",photoURL:null,online:false};
+  }
   currentConversationId=pair(me.uid,uid);
-  await idbOpen();let u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);if(!u)return;activeFriend=u;setChatHeader(u);$("chatPanel").classList.remove("hidden");document.body.style.overflow="hidden";subscribeChat(uid);watchTyping();await renderMessages()}
+  try{await idbOpen()}catch(e){console.warn("local message store unavailable",e)}
+  activeFriend=u;
+  setChatHeader(u);
+  $("chatPanel").classList.remove("hidden");
+  document.body.style.overflow="hidden";
+  subscribeChat(uid);
+  watchTyping();
+  renderMessages();
+}
 async function openGroupChat(groupId){
   currentConversationId=groupId;
   const g=groups.find(x=>x.id===groupId);if(!g)return toast("গ্রুপ পাওয়া যায়নি");
