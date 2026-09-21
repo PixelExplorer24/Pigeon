@@ -325,3 +325,5 @@ body.dark .chat-panel .messages{background:var(--bg)}
 @media(max-width:600px){.call-participants-panel{right:10px;bottom:82px;width:calc(100vw - 20px)}.call-controls{gap:7px}.call-control{min-width:58px}}
 
 .remote-video.pinned{grid-column:1/-1;min-height:58vh;z-index:3}.remote-video.pinned .remote-label-wrap{font-size:14px}
+
+.msg-footer{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:3px}.msg-footer .msg-time{margin-top:0}.msg-delete-btn{border:0;background:transparent;color:inherit;opacity:.55;width:22px;height:20px;padding:0;cursor:pointer;border-radius:6px;font-size:9px}.msg-delete-btn:hover{opacity:1;background:#00000012}.mine .msg-delete-btn:hover{background:#ffffff22}.msg-delete-btn:focus-visible{outline:2px solid currentColor;outline-offset:1px}
