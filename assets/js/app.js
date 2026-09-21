@@ -481,6 +481,37 @@ function setChatHeader(u){
 window.openUser=uid=>{const u=users.find(x=>x.uid===uid)||friends.find(x=>x.friendUid===uid);if(!u)return;$("userModalAvatar").src=avatar(u);$("userModalName").textContent=u.displayName||"User";$("userModalEmail").textContent=u.email||"";$("userModalBio").textContent=u.bio||"No bio added.";$("userModalChat").onclick=()=>{closeAllModals();openChat(uid)};$("userModal").classList.remove("hidden")};
 
 function subscribeChat(uid){chatUnsubs.forEach(u=>u&&u());chatUnsubs=[];const ref=MESSAGES();if(activeFriend?.isGroup){chatUnsubs.push(ref.where("groupId","==",uid).onSnapshot(renderMessages));}else{chatUnsubs.push(ref.where("senderUid","==",me.uid).where("receiverUid","==",uid).onSnapshot(renderMessages));chatUnsubs.push(ref.where("senderUid","==",uid).where("receiverUid","==",me.uid).onSnapshot(renderMessages));}}
+function messageHTML(m){
+  const mine=m.senderUid===me?.uid;
+  const imgs=Array.isArray(m.imageUrls)?m.imageUrls:[];
+  const legacyFile=m.fileUrl?[{downloadPage:m.fileUrl,id:m.fileId,name:m.fileName,size:m.fileSize,mimetype:m.fileMime}]:[];
+  const files=[...(Array.isArray(m.files)?m.files:[]),...legacyFile];
+  const uniqueFiles=files.filter((f,i,a)=>f.downloadPage&&a.findIndex(x=>x.downloadPage===f.downloadPage)===i);
+  const senderName=users.find(u=>String(u.uid)===String(m.senderUid))?.displayName||"Member";
+  const delBtn=`<button class="msg-delete-btn" type="button" title="Delete message" onclick="deleteMessage('${esc(m.id||'')}')"><i class="fa-solid fa-trash-can"></i></button>`;
+  return `<div class="msg-row ${mine?"mine":"theirs"}" data-message-id="${esc(m.id||"")}"><div class="bubble">
+    ${activeFriend?.isGroup&&!mine?`<div style="font-size:9px;font-weight:800;opacity:.7;margin-bottom:3px">${esc(senderName)}</div>`:""}
+    ${m.text?`<div>${esc(m.text).replace(/\n/g,"<br>")}</div>`:""}
+    ${imgs.map(u=>`<img class="msg-img" src="${esc(u)}" onclick="showImage('${esc(u)}')">`).join("")}
+    ${uniqueFiles.map(f=>`<a class="file-card" href="${esc(f.downloadPage)}" target="_blank" rel="noopener"><span class="file-icon"><i class="fa-solid fa-file-arrow-down"></i></span><span class="file-copy"><b>${esc(f.name||"Shared file")}</b><small>${esc(f.size?bytes(f.size):"File")}</small></span><i class="fa-solid fa-arrow-up-right-from-square file-download"></i></a>`).join("")}
+    <div class="msg-footer"><div class="msg-time">${time(m.createdAt||m.createdAtMs)}</div>${delBtn}</div>
+  </div></div>`;
+}
+async function deleteMessage(id){
+  if(!me||!id)return;
+  const m=activeMessageMap.get(id)||messageMap.get(id);
+  if(!m)return toast("Message পাওয়া যায়নি");
+  if(m.senderUid!==me.uid&&m.receiverUid!==me.uid)return toast("এই message delete করার অনুমতি নেই");
+  if(!confirm("এই message টি delete করবেন?"))return;
+  try{
+    await MESSAGES().doc(id).delete();
+    activeMessageMap.delete(id);messageMap.delete(id);cacheMessages();renderMessages();
+    toast("Message deleted");
+  }catch(e){
+    console.error("deleteMessage",e);
+    toast(e?.code==="permission-denied"?"Message delete করার permission নেই। Firestore Rules পরীক্ষা করুন":"Message delete করা যায়নি");
+  }
+}
 function renderMessages(){
   if(!activeFriend)return;
   const arr=[...activeMessageMap.values()].sort((x,y)=>(x.createdAt?.toMillis?.()||Number(x.createdAt)||0)-(y.createdAt?.toMillis?.()||Number(y.createdAt)||0));
